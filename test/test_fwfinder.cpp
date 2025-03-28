@@ -4,4 +4,5 @@
 
 TEST(FwFinder, BasicAssertions) {
     auto finder = Fw::Finder();
+    Fw::list_all();
 }

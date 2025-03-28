@@ -4,6 +4,8 @@ project(fwfinder)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(FetchContent)
+
 option(FW_FINDER_BUILD_TESTS "Build tests" ON)
 
 # Library files
@@ -17,6 +19,7 @@ set(SRC_FILES
 set(TEST_SRC_FILES
     test/test_fwfinder.cpp
     test/test_usbdef.cpp
+    test/test_win32.cpp
 )
 
 # Compiler and linker options
@@ -38,9 +41,16 @@ target_include_directories(
     PUBLIC
     include/)
 
+set(WIN32_LIB_LIST "")
+if (WIN32)
+    list(APPEND WIN32_LIB_LIST setupapi)
+    add_definitions(-DWIN32_LEAN_AND_MEAN -D_UNICODE -DUNICODE)
+endif ()
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${WIN32_LIB_LIST})
+
 if (FW_FINDER_BUILD_TESTS)
+    message(STATUS "Enabling tests...")
     # Include GoogleTest
-    include(FetchContent)
     FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
@@ -60,8 +70,12 @@ if (FW_FINDER_BUILD_TESTS)
 
     target_link_libraries(
         "${CMAKE_PROJECT_NAME}_test"
-        GTest::gtest_main
+        GTest::gtest_main ${WIN32_LIB_LIST}
     )
+
+    # if (WIN32)
+    #     target_link_libraries(${CMAKE_PROJECT_NAME}_test PRIVATE setupapi)
+    # endif ()
 
     target_include_directories(
         "${CMAKE_PROJECT_NAME}_test"

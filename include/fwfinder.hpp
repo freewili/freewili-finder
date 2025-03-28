@@ -7,4 +7,6 @@ class Finder {
     Finder();
 };
 
+void list_all();
+
 };  // namespace Fw

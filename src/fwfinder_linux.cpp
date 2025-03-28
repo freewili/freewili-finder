@@ -1,10 +1,9 @@
 #ifdef __linux__
 
-#include <fwfinder.hpp>
+    #include <fwfinder.hpp>
 
+Fw::Finder::Finder() {}
 
-Fw::Finder::FwFinder() {
-
-}
+void Fw::list_all() {}
 
 #endif // __linux__
