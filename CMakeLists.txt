@@ -1,0 +1,73 @@
+cmake_minimum_required(VERSION 3.20)
+project(fwfinder)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+option(FW_FINDER_BUILD_TESTS "Build tests" ON)
+
+# Library files
+set(SRC_FILES
+    src/fwfinder_linux.cpp
+    src/fwfinder_mac.cpp
+    src/fwfinder_windows.cpp
+)
+
+# Unit test files
+set(TEST_SRC_FILES
+    test/test_fwfinder.cpp
+    test/test_usbdef.cpp
+)
+
+# Compiler and linker options
+if(MSVC)
+    set_source_files_properties(${SRC_FILES} /W4)
+    set_source_files_properties(${TEST_SRC_FILES} /W4)
+else()
+    set_source_files_properties(${SRC_FILES} -Wall -Werror -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wfloat-equal -Wold-style-cast)
+    set_source_files_properties(${TEST_SRC_FILES} -Wall -Werror -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wfloat-equal -Wold-style-cast)
+endif()
+
+add_library(
+    ${CMAKE_PROJECT_NAME}
+    ${SRC_FILES}
+)
+
+target_include_directories(
+    ${CMAKE_PROJECT_NAME}
+    PUBLIC
+    include/)
+
+if (FW_FINDER_BUILD_TESTS)
+    # Include GoogleTest
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.16.0
+    )
+    # For Windows: Prevent overriding the parent project's compiler/linker settings
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
+    enable_testing()
+
+    add_executable(
+        "${CMAKE_PROJECT_NAME}_test"
+        ${SRC_FILES}
+        ${TEST_SRC_FILES}
+    )
+
+    target_link_libraries(
+        "${CMAKE_PROJECT_NAME}_test"
+        GTest::gtest_main
+    )
+
+    target_include_directories(
+        "${CMAKE_PROJECT_NAME}_test"
+        PUBLIC
+        include/)
+
+    include(GoogleTest)
+    gtest_discover_tests("${CMAKE_PROJECT_NAME}_test")
+endif()
