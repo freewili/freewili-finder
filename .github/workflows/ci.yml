@@ -9,7 +9,11 @@ on:
 jobs:
   pre_commit_check:
     name: "Pre-commit Check"
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
 
     steps:
     - uses: actions/checkout@v4
@@ -26,7 +30,7 @@ jobs:
 
   build:
     runs-on: ${{ matrix.os }}
-    needs: pre_commit_check
+    # needs: pre_commit_check
 
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
