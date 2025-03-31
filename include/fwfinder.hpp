@@ -3,10 +3,10 @@
 namespace Fw {
 
 class Finder {
-   public:
+  public:
     Finder();
 };
 
 void list_all();
 
-};  // namespace Fw
+}; // namespace Fw
