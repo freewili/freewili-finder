@@ -1,6 +1,9 @@
 // NOLINTBEGIN
 #ifdef _WIN32
     #include <windows.h>
+    #include <stringapiset.h>
+    #include <winnls.h>
+    #include <errhandlingapi.h>
     #include <tchar.h>
     #include <cfgmgr32.h> // for MAX_DEVICE_ID_LEN, CM_Get_Parent and CM_Get_Device_ID
     #include <combaseapi.h>
@@ -18,17 +21,26 @@
     #include <expected>
     #include <sstream>
     #include <string>
+    #include <print>
     #include <fwfinder.hpp>
 
     #define INITGUID
 
-Fw::Finder::Finder() {}
+Fw::Finder::Finder() = default;
 
-auto stringFromTCHAR(const TCHAR* const msg)
+auto stringFromTCHARRaw(const TCHAR* const msg)
     -> std::expected<std::string, DWORD> {
     #if defined(UNICODE)
-    if (size_t width =
-            WideCharToMultiByte(CP_UTF8, 0, msg, -1, 0, 0, NULL, NULL);
+    if (size_t const width = WideCharToMultiByte(
+            CP_UTF8,
+            0,
+            msg,
+            -1,
+            nullptr,
+            0,
+            nullptr,
+            nullptr
+        );
         width != 0) {
         std::string new_msg(width, '\0');
         if (auto success = WideCharToMultiByte(
@@ -38,8 +50,8 @@ auto stringFromTCHAR(const TCHAR* const msg)
                 -1,
                 new_msg.data(),
                 width,
-                NULL,
-                NULL
+                nullptr,
+                nullptr
             );
             success == 0) {
             return std::unexpected(GetLastError());
@@ -58,22 +70,35 @@ auto getLastErrorString(DWORD errorCode) -> std::expected<std::string, DWORD> {
     if (auto len = FormatMessage(
             FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM
                 | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,
+            nullptr,
             errorCode,
             MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
             (LPTSTR)&buffer,
             0,
-            NULL
+            nullptr
         );
         len != 0) {
         LocalFree(buffer);
-        return stringFromTCHAR(buffer);
+        return stringFromTCHARRaw(buffer);
     } else {
         LocalFree(buffer);
         // Error state, FormatMessage failed.
         return std::unexpected(GetLastError());
     }
 }
+
+// Convert TCHAR to std::string, return string representation of GetLastError() otherwise.
+auto stringFromTCHAR(const TCHAR* const szValue)
+    -> std::expected<std::string, std::string> {
+    if (auto result = stringFromTCHARRaw(szValue); result.has_value()) {
+        return result.value();
+    } else {
+        std::stringstream ss;
+        ss << "Error code: #" << result.error() << " ("
+           << getLastErrorString(result.error()).value_or(std::string()) << ")";
+        return std::unexpected(ss.str());
+    };
+};
 
     // #include "c:\WinDDK\7600.16385.1\inc\api\devpkey.h"
 
@@ -225,6 +250,89 @@ DEFINE_DEVPROPKEY(
     26
 ); // DEVPROP_TYPE_SECURITY_DESCRIPTOR_STRING
 
+auto Fw::find_all() noexcept
+    -> std::expected<Fw::FreeWiliDevices, std::string> {
+    HDEVINFO hDevInfo = nullptr;
+    /*
+        ListDevices(&GUID_DEVCLASS_USB, nullptr);
+    std::println("");
+
+    std::println("");
+    std::println("--------------------------------------------------");
+    std::println("Ports");
+    std::println("--------------------------------------------------");
+    ListDevices(&GUID_DEVCLASS_PORTS, nullptr);
+    std::println("");
+
+    std::println("");
+    std::println("-----------");
+    std::println("- Disk Drives -");
+    std::println("-----------");
+    // ListDevices(NULL, TEXT("STORAGE\\VOLUME"));
+    //printf (TEXT("\n"));
+    ListDevices(&GUID_DEVCLASS_DISKDRIVE, nullptr);
+    */
+    // List all connected USB devices - GUID_DEVCLASS_USB
+    if (auto hDevInfo = SetupDiGetClassDevs(
+            &GUID_DEVCLASS_USB,
+            nullptr,
+            nullptr,
+            DIGCF_PRESENT
+        );
+        hDevInfo == INVALID_HANDLE_VALUE) {
+        std::stringstream ss;
+        ss << "SetupDiGetClassDevs(GUID_DEVCLASS_USB) failed: "
+           << getLastErrorString(GetLastError()).value_or(std::string());
+        return std::unexpected(ss.str());
+    }
+
+    for (auto i = 0;; i++) {
+        // Get Device information
+        SP_DEVINFO_DATA devInfoData {};
+        devInfoData.cbSize = sizeof(devInfoData);
+        if (auto res = SetupDiEnumDeviceInfo(hDevInfo, i, &devInfoData);
+            res == FALSE) {
+            if (auto err = GetLastError(); err == ERROR_NO_MORE_ITEMS) {
+                break;
+            } else {
+                std::stringstream ss;
+                ss << "SetupDiEnumDeviceInfo() failed: "
+                   << getLastErrorString(err).value_or(std::string());
+                return std::unexpected(ss.str());
+            }
+        }
+        // Get Instance ID
+        // FTDI: USB\VID_0403&PID_6014\FW4607
+        // RP2040 Serial: USB\VID_2E8A&PID_000A\E463A8574B3F3935
+        // RP2040 UF2 Mass storage: USB\VID_2E8A&PID_0003&MI_00\A&22CF742D&1&0000
+        // RP2040 UF2: USB\VID_2E8A&PID_0003\E0C9125B0D9B
+        // Microchip hub: USB\VID_0424&PID_2513\8&36C81A88&0&1
+        TCHAR instanceID[MAX_DEVICE_ID_LEN + 1] {};
+        if (auto res = CM_Get_Device_ID(
+                devInfoData.DevInst,
+                instanceID,
+                MAX_DEVICE_ID_LEN + 1,
+                0
+            );
+            res != CR_SUCCESS) {
+            std::stringstream ss;
+            ss << "CM_Get_Device_ID() failed with CR error: " << res;
+            return std::unexpected(ss.str());
+        }
+        if (auto result = stringFromTCHAR(instanceID); !result.has_value()) {
+            return std::unexpected(result.error());
+        }
+
+        // name = Bus Reported Device Description + Device Description
+    }
+
+    // List all connected Ports - GUID_DEVCLASS_PORTS
+
+    // List all connected Disk Drives - GUID_DEVCLASS_DISKDRIVE
+
+    return std::unexpected("TODO");
+}
+
     #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 // #pragma comment(lib, "setupapi.lib")
@@ -262,7 +370,7 @@ static void ListDevices(CONST GUID* pClassGuid, LPCTSTR pszEnumerator) {
     // Convert TCHAR to std::string, place the error inside the string if
     // we failed to convert
     auto _toString = [](const TCHAR* szValue) -> std::string {
-        if (auto result = stringFromTCHAR(szValue); result.has_value()) {
+        if (auto result = stringFromTCHARRaw(szValue); result.has_value()) {
             return result.value();
         } else {
             std::stringstream ss;
@@ -302,7 +410,7 @@ static void ListDevices(CONST GUID* pClassGuid, LPCTSTR pszEnumerator) {
         }
 
         // Display device instance ID
-        printf("%s\n", _toString(szDeviceInstanceID).c_str());
+        std::println("Device Instance ID: {}", _toString(szDeviceInstanceID));
 
         if (SetupDiGetDeviceRegistryProperty(
                 hDevInfo,
@@ -313,10 +421,7 @@ static void ListDevices(CONST GUID* pClassGuid, LPCTSTR pszEnumerator) {
                 sizeof(szDesc), // The size, in bytes
                 &dwSize
             )) {
-            printf(
-                "    Device Description: \"%s\"\n",
-                _toString(szDesc).c_str()
-            );
+            std::println("    Device Description: \"{}\"", _toString(szDesc));
         }
 
         if (SetupDiGetDeviceRegistryProperty(
@@ -329,12 +434,12 @@ static void ListDevices(CONST GUID* pClassGuid, LPCTSTR pszEnumerator) {
                 &dwSize
             )) {
             LPCTSTR pszId = nullptr;
-            printf("    Hardware IDs:\n");
+            std::println("    Hardware IDs:");
             for (pszId = szHardwareIDs; *pszId != TEXT('\0')
                  && pszId + dwSize / sizeof(TCHAR)
                      <= szHardwareIDs + ARRAYSIZE(szHardwareIDs);
                  pszId += lstrlen(pszId) + 1) {
-                printf("        \"%s\"\n", _toString(pszId).c_str());
+                std::println("        \"{}\"", _toString(pszId));
             }
         }
 
@@ -351,119 +456,121 @@ static void ListDevices(CONST GUID* pClassGuid, LPCTSTR pszEnumerator) {
                 sizeof(szBuffer),
                 &dwSize,
                 0
-            )) {
-            if (SetupDiGetDevicePropertyW(
-                    hDevInfo,
-                    &DeviceInfoData,
-                    &DEVPKEY_Device_BusReportedDeviceDesc,
-                    &ulPropertyType,
-                    (BYTE*)szBuffer,
-                    sizeof(szBuffer),
-                    &dwSize,
-                    0
-                )) {
-                printf(
-                    "    Bus Reported Device Description: \"%s\"\n",
-                    _toString(szBuffer).c_str()
-                );
-            }
-            if (SetupDiGetDevicePropertyW(
-                    hDevInfo,
-                    &DeviceInfoData,
-                    &DEVPKEY_Device_Manufacturer,
-                    &ulPropertyType,
-                    (BYTE*)szBuffer,
-                    sizeof(szBuffer),
-                    &dwSize,
-                    0
-                )) {
-                printf(
-                    "    Device Manufacturer: \"%s\"\n",
-                    _toString(szBuffer).c_str()
-                );
-            }
-            if (SetupDiGetDevicePropertyW(
-                    hDevInfo,
-                    &DeviceInfoData,
-                    &DEVPKEY_Device_FriendlyName,
-                    &ulPropertyType,
-                    (BYTE*)szBuffer,
-                    sizeof(szBuffer),
-                    &dwSize,
-                    0
-                )) {
-                printf(
-                    "    Device Friendly Name: \"%s\"\n",
-                    _toString(szBuffer).c_str()
-                );
-            }
-            if (SetupDiGetDevicePropertyW(
-                    hDevInfo,
-                    &DeviceInfoData,
-                    &DEVPKEY_Device_LocationInfo,
-                    &ulPropertyType,
-                    (BYTE*)szBuffer,
-                    sizeof(szBuffer),
-                    &dwSize,
-                    0
-                )) {
-                printf(
-                    "    Device Location Info: \"%s\"\n",
-                    _toString(szBuffer).c_str()
-                );
-            }
-            if (SetupDiGetDevicePropertyW(
-                    hDevInfo,
-                    &DeviceInfoData,
-                    &DEVPKEY_Device_SecuritySDS,
-                    &ulPropertyType,
-                    (BYTE*)szBuffer,
-                    sizeof(szBuffer),
-                    &dwSize,
-                    0
-                )) {
-                // See Security Descriptor Definition Language on MSDN
-                // (http://msdn.microsoft.com/en-us/library/windows/desktop/aa379567(v=vs.85).aspx)
-                printf(
-                    "    Device Security Descriptor String: \"%s\"\n",
-                    _toString(szBuffer).c_str()
-                );
-            }
-            if (SetupDiGetDevicePropertyW(
-                    hDevInfo,
-                    &DeviceInfoData,
-                    &DEVPKEY_Device_ContainerId,
-                    &ulPropertyType,
-                    (BYTE*)szDesc,
-                    sizeof(szDesc),
-                    &dwSize,
-                    0
-                )) {
-                StringFromGUID2(
-                    (REFGUID)szDesc,
-                    szBuffer,
-                    ARRAY_SIZE(szBuffer)
-                );
-                printf(
-                    "    ContainerId: \"%s\"\n",
-                    _toString(szBuffer).c_str()
-                );
-            }
-            if (SetupDiGetDevicePropertyW(
-                    hDevInfo,
-                    &DeviceInfoData,
-                    &DEVPKEY_DeviceDisplay_Category,
-                    &ulPropertyType,
-                    (BYTE*)szBuffer,
-                    sizeof(szBuffer),
-                    &dwSize,
-                    0
-                )) {
-                printf(
-                    "    Device Display Category: \"%s\"\n",
-                    _toString(szBuffer).c_str()
-                );
-            }
+            )
+            == 0) {
+            continue;
+        }
+        if (SetupDiGetDevicePropertyW(
+                hDevInfo,
+                &DeviceInfoData,
+                &DEVPKEY_Device_BusReportedDeviceDesc,
+                &ulPropertyType,
+                (BYTE*)szBuffer,
+                sizeof(szBuffer),
+                &dwSize,
+                0
+            )
+            != 0) {
+            std::println(
+                "    Bus Reported Device Description: \"{}\"",
+                _toString(szBuffer)
+            );
+        }
+        if (SetupDiGetDevicePropertyW(
+                hDevInfo,
+                &DeviceInfoData,
+                &DEVPKEY_Device_Manufacturer,
+                &ulPropertyType,
+                (BYTE*)szBuffer,
+                sizeof(szBuffer),
+                &dwSize,
+                0
+            )
+            != 0) {
+            std::println(
+                "    Device Manufacturer: \"{}\"",
+                _toString(szBuffer)
+            );
+        }
+        if (SetupDiGetDevicePropertyW(
+                hDevInfo,
+                &DeviceInfoData,
+                &DEVPKEY_Device_FriendlyName,
+                &ulPropertyType,
+                (BYTE*)szBuffer,
+                sizeof(szBuffer),
+                &dwSize,
+                0
+            )
+            != 0) {
+            std::println(
+                "    Device Friendly Name: \"{}\"",
+                _toString(szBuffer)
+            );
+        }
+        if (SetupDiGetDevicePropertyW(
+                hDevInfo,
+                &DeviceInfoData,
+                &DEVPKEY_Device_LocationInfo,
+                &ulPropertyType,
+                (BYTE*)szBuffer,
+                sizeof(szBuffer),
+                &dwSize,
+                0
+            )
+            != 0) {
+            std::println(
+                "    Device Location Info: \"{}\"",
+                _toString(szBuffer)
+            );
+        }
+        if (SetupDiGetDevicePropertyW(
+                hDevInfo,
+                &DeviceInfoData,
+                &DEVPKEY_Device_SecuritySDS,
+                &ulPropertyType,
+                (BYTE*)szBuffer,
+                sizeof(szBuffer),
+                &dwSize,
+                0
+            )
+            != 0) {
+            // See Security Descriptor Definition Language on MSDN
+            // (http://msdn.microsoft.com/en-us/library/windows/desktop/aa379567(v=vs.85).aspx)
+            std::println(
+                "    Device Security Descriptor String: \"{}\"",
+                _toString(szBuffer)
+            );
+        }
+        if (SetupDiGetDevicePropertyW(
+                hDevInfo,
+                &DeviceInfoData,
+                &DEVPKEY_Device_ContainerId,
+                &ulPropertyType,
+                (BYTE*)szDesc,
+                sizeof(szDesc),
+                &dwSize,
+                0
+            )
+            != 0) {
+            StringFromGUID2((REFGUID)szDesc, szBuffer, ARRAY_SIZE(szBuffer));
+            std::println("    ContainerId: \"{}\"", _toString(szBuffer));
+        }
+        if (SetupDiGetDevicePropertyW(
+                hDevInfo,
+                &DeviceInfoData,
+                &DEVPKEY_DeviceDisplay_Category,
+                &ulPropertyType,
+                (BYTE*)szBuffer,
+                sizeof(szBuffer),
+                &dwSize,
+                0
+            )
+            != 0) {
+            std::println(
+                "    Device Display Category: \"{}\"",
+                _toString(szBuffer)
+            );
         }
 
         pszToken = _tcstok_s(szDeviceInstanceID, TEXT("\\#&"), &pszNextToken);
@@ -473,35 +580,38 @@ static void ListDevices(CONST GUID* pClassGuid, LPCTSTR pszEnumerator) {
             szMi[0] = TEXT('\0');
             for (j = 0; j < 3; j++) {
                 if (_tcsncmp(pszToken, arPrefix[j], lstrlen(arPrefix[j]))
-                    == 0) {
-                    switch (j) {
-                        case 0:
-                            _tcscpy_s(szVid, ARRAY_SIZE(szVid), pszToken);
-                            break;
-                        case 1:
-                            _tcscpy_s(szPid, ARRAY_SIZE(szPid), pszToken);
-                            break;
-                        case 2:
-                            _tcscpy_s(szMi, ARRAY_SIZE(szMi), pszToken);
-                            break;
-                        default:
-                            break;
-                    }
+                    != 0) {
+                    continue;
+                }
+                switch (j) {
+                    case 0:
+                        _tcscpy_s(szVid, ARRAY_SIZE(szVid), pszToken);
+                        break;
+                    case 1:
+                        _tcscpy_s(szPid, ARRAY_SIZE(szPid), pszToken);
+                        break;
+                    case 2:
+                        _tcscpy_s(szMi, ARRAY_SIZE(szMi), pszToken);
+                        break;
+                    default:
+                        break;
                 }
             }
             if (szVid[0] != TEXT('\0')) {
-                printf("    vid: \"%s\"\n", _toString(szVid).c_str());
+                std::println("    vid: \"{}\"", _toString(szVid));
             }
             if (szPid[0] != TEXT('\0')) {
-                printf("    pid: \"%s\"\n", _toString(szPid).c_str());
+                std::println("    pid: \"{}\"", _toString(szPid));
             }
             if (szMi[0] != TEXT('\0')) {
-                printf("    mi: \"%s\"\n", _toString(szMi).c_str());
+                std::println("    mi: \"{}\"", _toString(szMi));
             }
             pszToken = _tcstok_s(nullptr, TEXT("\\#&"), &pszNextToken);
         }
     }
 }
+
+// NOLINTEND
 
 //void Fw::list_all() {}
 
@@ -512,10 +622,10 @@ void Fw::list_all() {
     // printf (TEXT("---------------------------------------------------\n"));
     // ListDevices(NULL, TEXT("USB"));
 
-    printf("\n");
-    printf("-------------------------------------------------------\n");
-    printf("- USBSTOR devices -\n");
-    printf("-------------------------------------------------------\n");
+    std::println("");
+    std::println("-------------------------------------------------------");
+    std::println("- USBSTOR devices -");
+    std::println("-------------------------------------------------------");
     ListDevices(nullptr, TEXT("USBSTOR"));
 
     // printf (TEXT("\n"));
@@ -524,24 +634,24 @@ void Fw::list_all() {
     // printf (TEXT("--------------------------------------------------\n"));
     // ListDevices(NULL, TEXT("SD"));
 
-    printf("\n");
-    printf("--------------------------------------------------\n");
-    printf("USB\n");
-    printf("--------------------------------------------------\n");
+    std::println("");
+    std::println("--------------------------------------------------");
+    std::println("USB");
+    std::println("--------------------------------------------------");
     ListDevices(&GUID_DEVCLASS_USB, nullptr);
-    printf("\n");
+    std::println("");
 
-    printf("\n");
-    printf("--------------------------------------------------\n");
-    printf("Ports\n");
-    printf("--------------------------------------------------\n");
+    std::println("");
+    std::println("--------------------------------------------------");
+    std::println("Ports");
+    std::println("--------------------------------------------------");
     ListDevices(&GUID_DEVCLASS_PORTS, nullptr);
-    printf("\n");
+    std::println("");
 
-    printf("\n");
-    printf("-----------\n");
-    printf("- Disk Drives -\n");
-    printf("-----------\n");
+    std::println("");
+    std::println("-----------");
+    std::println("- Disk Drives -");
+    std::println("-----------");
     // ListDevices(NULL, TEXT("STORAGE\\VOLUME"));
     //printf (TEXT("\n"));
     ListDevices(&GUID_DEVCLASS_DISKDRIVE, nullptr);
@@ -553,5 +663,4 @@ void Fw::list_all() {
     // ListDevices(&GUID_DEVCLASS_DISKDRIVE, NULL);
 }
 
-#endif // _WIN32 \
-    // NOLINTEND
+#endif // _WIN32

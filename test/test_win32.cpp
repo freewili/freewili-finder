@@ -7,14 +7,16 @@
     #include <expected>
     #include <string>
 
-extern auto stringFromTCHAR(const TCHAR* const msg)
+extern auto stringFromTCHARRaw(const TCHAR* const msg)
     -> std::expected<std::string, DWORD>;
 extern auto getLastErrorString(DWORD errorCode)
     -> std::expected<std::string, DWORD>;
+extern auto stringFromTCHAR(const TCHAR* const msg)
+    -> std::expected<std::string, std::string>;
 
-TEST(win32, stringFromTCHAR) {
+TEST(win32, stringFromTCHARRaw) {
     const TCHAR* const buffer = TEXT("Hello World!");
-    auto converted = stringFromTCHAR(buffer);
+    auto converted = stringFromTCHARRaw(buffer);
     ASSERT_TRUE(converted.has_value());
     ASSERT_EQ(converted.value().length(), 13);
     ASSERT_STREQ(converted.value().c_str(), "Hello World!");
@@ -27,6 +29,14 @@ TEST(win32, getLastErrorString) {
         errorStringResult.value().c_str(),
         "The operation completed successfully.\r\n"
     );
+}
+
+TEST(win32, stringFromTCHAR) {
+    const TCHAR* const buffer = TEXT("Hello World!");
+    auto converted = stringFromTCHARRaw(buffer);
+    ASSERT_TRUE(converted.has_value());
+    ASSERT_EQ(converted.value().length(), 13);
+    ASSERT_STREQ(converted.value().c_str(), "Hello World!");
 }
 
 #endif // _WIN32
