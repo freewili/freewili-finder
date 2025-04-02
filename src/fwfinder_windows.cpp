@@ -22,7 +22,11 @@
     #include <sstream>
     #include <string>
     #include <print>
+    #include <algorithm>
+    #include <iterator>
+    #include <regex>
     #include <fwfinder.hpp>
+    #include <fwfinder_windows.hpp>
 
     #define INITGUID
 
@@ -87,7 +91,6 @@ auto getLastErrorString(DWORD errorCode) -> std::expected<std::string, DWORD> {
     }
 }
 
-// Convert TCHAR to std::string, return string representation of GetLastError() otherwise.
 auto stringFromTCHAR(const TCHAR* const szValue)
     -> std::expected<std::string, std::string> {
     if (auto result = stringFromTCHARRaw(szValue); result.has_value()) {
@@ -99,6 +102,79 @@ auto stringFromTCHAR(const TCHAR* const szValue)
         return std::unexpected(ss.str());
     };
 };
+
+auto splitInstanceID(std::string value)
+    -> std::expected<std::vector<std::string>, std::string> {
+    std::size_t current = 0, previous = 0;
+    std::vector<std::string> values;
+    do {
+        current = value.find('\\', previous);
+        if (current == std::string::npos) {
+            values.push_back(value.substr(previous, value.length() - 1));
+            break;
+        }
+        values.push_back(value.substr(previous, current - previous));
+        previous = current + 1;
+    } while (current != std::string::npos);
+    // We should always have 3 values here.
+    if (values.size() != 3) {
+        std::stringstream ss;
+        ss << "Size of values is wrong, expected 3 got " << values.size();
+        return std::unexpected(ss.str());
+    }
+    return values;
+}
+
+auto getUSBInstanceID(std::string value)
+    -> std::expected<USBInstanceID, std::string> {
+    if (auto values = splitInstanceID(value); !values.has_value()) {
+        return std::unexpected(values.error());
+    } else {
+        auto split = values.value();
+        // seperate the VID/PID values
+        std::regex re(R"((VID_[0-9a-fA-F]+)|(PID_[0-9a-fA-F]+))");
+        auto match_begin =
+            std::sregex_iterator(split[1].begin(), split[1].end(), re);
+        std::vector<std::string> matches;
+        for (auto iter = match_begin; iter != std::sregex_iterator(); ++iter) {
+            matches.push_back(iter->str());
+            std::println("{}", iter->str());
+        }
+        if (matches.size() != 2) {
+            std::stringstream ss;
+            ss << "Size of matches is wrong, expected 2 got " << matches.size();
+            return std::unexpected(ss.str());
+        }
+        // Extract the VID hex values
+        std::regex hex_re(R"([0-9a-fA-F]+$)");
+        std::cmatch vid_hex_match;
+        if (!std::regex_search(matches[0].c_str(), vid_hex_match, hex_re)) {
+            return std::unexpected("Failed to regex_match Hex value of VID");
+        }
+        // Extract the PID hex values
+        std::cmatch pid_hex_match;
+        if (!std::regex_search(matches[1].c_str(), pid_hex_match, hex_re)) {
+            return std::unexpected("Failed to regex_match Hex value of PID");
+        }
+        // Convert hex string to integer
+        uint16_t vid = 0, pid = 0;
+        std::stringstream ss;
+        // VID
+        ss << std::hex << vid_hex_match[0].str();
+        ss >> vid;
+        ss.clear();
+        // PID
+        ss << std::hex << pid_hex_match[0].str();
+        ss >> pid;
+        // Finally construct the struct and return it.
+        auto usb_instance_id = USBInstanceID {
+            .vid = vid,
+            .pid = pid,
+            .serial = split[2],
+        };
+        return usb_instance_id;
+    }
+}
 
     // #include "c:\WinDDK\7600.16385.1\inc\api\devpkey.h"
 
