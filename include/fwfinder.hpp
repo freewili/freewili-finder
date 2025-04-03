@@ -11,16 +11,20 @@ namespace Fw {
 /// Type of USB Device
 enum class USBDeviceType : uint32_t {
     /// USB Hub, every FreeWili has one as the parent
-    Generic,
+    Hub,
     /// Serial Port (COMx) on windows
     Serial,
     /// Mass Storage Device
     MassStorage,
     /// ESP32 USB (JTAG/RTT)
     ESP32,
+    /// FTDI / FPGA
+    FTDI,
     /// Some other USB device attached to the same hub
     Other,
 };
+
+auto getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid) -> USBDeviceType;
 
 typedef struct USBDevice USBDevice;
 
@@ -37,18 +41,17 @@ struct USBDevice {
     std::string name;
     /// Serial of the device
     std::string serial;
+    /// USB physical location, 0 = first port
+    uint8_t location;
 
     /// USB Mass storage Path or Serial Port Path
     std::optional<std::string> path_or_port;
-
-    /// Parent USB device - Typically a HUB, will be nullptr if no parent found.
-    std::unique_ptr<USBDevice> parent;
 };
 
 /// Container of all USB Devices.
 typedef std::vector<USBDevice> USBDevices;
 /// Free-Wili Device with all associated USB devices.
-typedef std::vector<USBDevices> FreeWiliDevice;
+typedef USBDevices FreeWiliDevice;
 /// Free-Wili Devices
 typedef std::vector<FreeWiliDevice> FreeWiliDevices;
 

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
+#include <vector>
 
 namespace Fw {
 /// FreeWili USB Hub Vendor ID.
@@ -19,4 +21,19 @@ const uint32_t USB_VID_FW_RPI = 0x2E8A;
 const uint32_t USB_PID_FW_RPI_CDC_PID = 0x000A;
 /// Raspberry Pi Pico SDK UF2 Product ID
 const uint32_t USB_PID_FW_RPI_UF2_PID = 0x0003;
+
+static std::map<uint16_t, std::vector<uint16_t>> WhitelistVIDPID = {
+    {USB_VID_FW_HUB,
+     {
+         USB_PID_FW_HUB,
+     }},
+    {USB_VID_FW_FTDI,
+     {
+         USB_PID_FW_FTDI,
+     }},
+    {USB_VID_FW_RPI, {USB_PID_FW_RPI_CDC_PID, USB_PID_FW_RPI_UF2_PID}},
+};
+
+auto is_vid_pid_whitelisted(uint16_t vid, uint16_t pid) -> bool;
+
 }; // namespace Fw

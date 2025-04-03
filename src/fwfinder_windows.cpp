@@ -25,8 +25,11 @@
     #include <algorithm>
     #include <iterator>
     #include <regex>
+    #include <map>
+    #include <vector>
     #include <fwfinder.hpp>
     #include <fwfinder_windows.hpp>
+    #include <usbdef.hpp>
 
     #define INITGUID
 
@@ -138,7 +141,6 @@ auto getUSBInstanceID(std::string value)
         std::vector<std::string> matches;
         for (auto iter = match_begin; iter != std::sregex_iterator(); ++iter) {
             matches.push_back(iter->str());
-            std::println("{}", iter->str());
         }
         if (matches.size() != 2) {
             std::stringstream ss;
@@ -329,27 +331,88 @@ DEFINE_DEVPROPKEY(
 auto Fw::find_all() noexcept
     -> std::expected<Fw::FreeWiliDevices, std::string> {
     HDEVINFO hDevInfo = nullptr;
+
     /*
-        ListDevices(&GUID_DEVCLASS_USB, nullptr);
-    std::println("");
+    const uint32_t USB_VID_FW_HUB = 0x0424;
+/// FreeWili USB Hub Product ID.
+const uint32_t USB_PID_FW_HUB = 0x2513;
 
-    std::println("");
-    std::println("--------------------------------------------------");
-    std::println("Ports");
-    std::println("--------------------------------------------------");
-    ListDevices(&GUID_DEVCLASS_PORTS, nullptr);
-    std::println("");
+/// FreeWili Black FTDI VendorID
+const uint32_t USB_VID_FW_FTDI = 0x0403;
+/// FreeWili Black FTDI ProductID
+const uint32_t USB_PID_FW_FTDI = 0x6014;
 
-    std::println("");
-    std::println("-----------");
-    std::println("- Disk Drives -");
-    std::println("-----------");
-    // ListDevices(NULL, TEXT("STORAGE\\VOLUME"));
-    //printf (TEXT("\n"));
-    ListDevices(&GUID_DEVCLASS_DISKDRIVE, nullptr);
+/// Raspberry Pi Vendor ID
+const uint32_t USB_VID_FW_RPI = 0x2E8A;
+/// Raspberry Pi Pico SDK CDC UART Product ID
+const uint32_t USB_PID_FW_RPI_CDC_PID = 0x000A;
+/// Raspberry Pi Pico SDK UF2 Product ID
+const uint32_t USB_PID_FW_RPI_UF2_PID = 0x0003;
+
     */
+
+    // Helper function to get Registry Property
+    auto _getDeviceRegistryProp = [&](SP_DEVINFO_DATA& devInfoData, DWORD prop
+                                  ) -> std::expected<std::string, std::string> {
+        DWORD dwPropertyRegDataType = 0;
+        TCHAR buffer[1024] {};
+        if (SetupDiGetDeviceRegistryProperty(
+                hDevInfo,
+                &devInfoData,
+                prop,
+                &dwPropertyRegDataType,
+                reinterpret_cast<BYTE*>(buffer),
+                sizeof(buffer),
+                nullptr
+            )
+            == FALSE) {
+            auto errorCode = GetLastError();
+            if (auto res = getLastErrorString(errorCode); res.has_value()) {
+                return std::unexpected(res.value());
+            } else {
+                std::stringstream ss;
+                ss << "Error code: #" << errorCode;
+                return std::unexpected(ss.str());
+            }
+        }
+        return stringFromTCHAR(buffer);
+    };
+    // Helper function to get device Property
+    auto _getDeviceProperty = [&](SP_DEVINFO_DATA& devInfoData,
+                                  const DEVPROPKEY key,
+                                  bool fromGUID = false
+                              ) -> std::expected<std::string, std::string> {
+        DEVPROPTYPE propertyType = 0;
+        TCHAR buffer[1024] {};
+        if (SetupDiGetDeviceProperty(
+                hDevInfo,
+                &devInfoData,
+                &key,
+                &propertyType,
+                reinterpret_cast<BYTE*>(buffer),
+                sizeof(buffer),
+                nullptr,
+                0
+            )
+            == FALSE) {
+            auto errorCode = GetLastError();
+            if (auto res = getLastErrorString(errorCode); res.has_value()) {
+                return std::unexpected(res.value());
+            } else {
+                std::stringstream ss;
+                ss << "Error code: #" << errorCode;
+                return std::unexpected(ss.str());
+            }
+        }
+        if (fromGUID) {
+            TCHAR convertedBuffer[4096] {};
+            StringFromGUID2((REFGUID)buffer, convertedBuffer, 4096);
+            return stringFromTCHAR(convertedBuffer);
+        }
+        return stringFromTCHAR(buffer);
+    };
     // List all connected USB devices - GUID_DEVCLASS_USB
-    if (auto hDevInfo = SetupDiGetClassDevs(
+    if (hDevInfo = SetupDiGetClassDevs(
             &GUID_DEVCLASS_USB,
             nullptr,
             nullptr,
@@ -362,6 +425,7 @@ auto Fw::find_all() noexcept
         return std::unexpected(ss.str());
     }
 
+    std::map<std::string, USBDevices> containerDevices;
     for (auto i = 0;; i++) {
         // Get Device information
         SP_DEVINFO_DATA devInfoData {};
@@ -395,18 +459,96 @@ auto Fw::find_all() noexcept
             ss << "CM_Get_Device_ID() failed with CR error: " << res;
             return std::unexpected(ss.str());
         }
-        if (auto result = stringFromTCHAR(instanceID); !result.has_value()) {
+        auto result = stringFromTCHAR(instanceID);
+        if (!result.has_value()) {
             return std::unexpected(result.error());
         }
+        // This grabs all VID/PID devices we care about for now.
+        auto usbInstId = getUSBInstanceID(result.value());
+        if (!usbInstId.has_value()) {
+            //return std::unexpected(usb_inst_id.error());
+            std::println(
+                "\t\tInvalid VID/PID: {} {}",
+                usbInstId.error(),
+                result.value()
+            );
+            continue;
+        } else if (!Fw::is_vid_pid_whitelisted(
+                       usbInstId.value().vid,
+                       usbInstId.value().pid
+                   )) {
+            continue;
+        }
+        std::println(
+            "VID: {:X} PID: {:X} Serial: {}",
+            usbInstId.value().vid,
+            usbInstId.value().pid,
+            usbInstId.value().serial
+        );
+
+        auto kind = Fw::getUSBDeviceTypeFrom(
+            usbInstId.value().vid,
+            usbInstId.value().pid
+        );
 
         // name = Bus Reported Device Description + Device Description
-    }
+        auto descResult = _getDeviceRegistryProp(devInfoData, SPDRP_DEVICEDESC);
+        auto busDescResult = _getDeviceProperty(
+            devInfoData,
+            DEVPKEY_Device_BusReportedDeviceDesc
+        );
 
+        std::string name;
+        // Append Device Description
+        if (descResult.has_value()) {
+            name = descResult.value();
+        }
+        // append Bus Reported Device Description
+        if (busDescResult.has_value()) {
+            if (!name.empty()) {
+                name += " ";
+            }
+            name = busDescResult.value();
+        }
+        std::println("\tname: {}", name);
+
+        // Container ID
+        // https://learn.microsoft.com/en-us/windows-hardware/drivers/install/container-ids
+        auto containerIdResult =
+            _getDeviceProperty(devInfoData, DEVPKEY_Device_ContainerId, true);
+        if (containerIdResult.has_value()) {
+            std::println("\tContainer ID: {}", containerIdResult.value());
+        }
+
+        // Location ID
+        auto locationIdResult =
+            _getDeviceProperty(devInfoData, DEVPKEY_Device_LocationInfo);
+        if (locationIdResult.has_value()) {
+            std::println("\tLocation ID: {}", locationIdResult.value());
+        }
+
+        // Finally lets add it to the list
+        containerDevices[containerIdResult.value()].push_back(Fw::USBDevice {
+            .kind = kind,
+            .vid = usbInstId.value().vid,
+            .pid = usbInstId.value().pid,
+            .name = name,
+            .serial = usbInstId.value().serial,
+            .location = 0,
+            .path_or_port = std::nullopt,
+        });
+    }
+    // Convert to FreeWiliDevices
+    FreeWiliDevices fwDevices;
+    for (auto& containerDevice : containerDevices) {
+        fwDevices.push_back(containerDevice.second);
+    }
     // List all connected Ports - GUID_DEVCLASS_PORTS
 
     // List all connected Disk Drives - GUID_DEVCLASS_DISKDRIVE
 
-    return std::unexpected("TODO");
+    return fwDevices;
+    //return std::unexpected("TODO");
 }
 
     #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
@@ -523,19 +665,19 @@ static void ListDevices(CONST GUID* pClassGuid, LPCTSTR pszEnumerator) {
         // On Vista and earlier, we can use only SPDRP_DEVICEDESC
         // On Windows 7, the information we want ("Bus reported device description") is
         // accessed through DEVPKEY_Device_BusReportedDeviceDesc
-        if (SetupDiGetDevicePropertyW(
-                hDevInfo,
-                &DeviceInfoData,
-                &DEVPKEY_Device_BusReportedDeviceDesc,
-                &ulPropertyType,
-                (BYTE*)szBuffer,
-                sizeof(szBuffer),
-                &dwSize,
-                0
-            )
-            == 0) {
-            continue;
-        }
+        // if (SetupDiGetDevicePropertyW(
+        //         hDevInfo,
+        //         &DeviceInfoData,
+        //         &DEVPKEY_Device_BusReportedDeviceDesc,
+        //         &ulPropertyType,
+        //         (BYTE*)szBuffer,
+        //         sizeof(szBuffer),
+        //         &dwSize,
+        //         0
+        //     )
+        //     == 0) {
+        //     continue;
+        // }
         if (SetupDiGetDevicePropertyW(
                 hDevInfo,
                 &DeviceInfoData,
@@ -732,11 +874,16 @@ void Fw::list_all() {
     //printf (TEXT("\n"));
     ListDevices(&GUID_DEVCLASS_DISKDRIVE, nullptr);
 
-    // printf (TEXT("\n"));
-    // printf (TEXT("----------------------------------------------------------------\n"));
-    // printf (TEXT("- devices with disk drives -\n"));
-    // printf (TEXT("----------------------------------------------------------------\n"));
-    // ListDevices(&GUID_DEVCLASS_DISKDRIVE, NULL);
+    std::println("");
+    std::println(
+        "----------------------------------------------------------------"
+    );
+    std::println("- devices with disk drives -");
+    std::println(
+        "----------------------------------------------------------------"
+    );
+    ListDevices(&GUID_DEVCLASS_DISKDRIVE, NULL);
 }
 
+// https://learn.microsoft.com/en-us/answers/questions/699300/how-to-get-drive-letter-from-usb-vid-and-pid
 #endif // _WIN32
