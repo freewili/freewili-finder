@@ -15,6 +15,8 @@
     #include <specstrings_strict.h>
     #include <winbase.h>
     #include <winnt.h>
+    #include <initguid.h>
+    #include <devpkey.h>
 
     #include <cstdio>
     #include <cstring>
@@ -31,7 +33,7 @@
     #include <fwfinder_windows.hpp>
     #include <usbdef.hpp>
 
-    #define INITGUID
+//#define INITGUID
 
 Fw::Finder::Finder() = default;
 
@@ -178,178 +180,9 @@ auto getUSBInstanceID(std::string value)
     }
 }
 
-    // #include "c:\WinDDK\7600.16385.1\inc\api\devpkey.h"
-
-    // include DEVPKEY_Device_BusReportedDeviceDesc from WinDDK\7600.16385.1\inc\api\devpropdef.h
-    #ifdef DEFINE_DEVPROPKEY
-        #undef DEFINE_DEVPROPKEY
-    #endif
-    #ifdef INITGUID
-        #define DEFINE_DEVPROPKEY( \
-            name, \
-            l, \
-            w1, \
-            w2, \
-            b1, \
-            b2, \
-            b3, \
-            b4, \
-            b5, \
-            b6, \
-            b7, \
-            b8, \
-            pid \
-        ) \
-            EXTERN_C const DEVPROPKEY DECLSPEC_SELECTANY \
-                name = {{l, w1, w2, {b1, b2, b3, b4, b5, b6, b7, b8}}, pid}
-    #else
-        #define DEFINE_DEVPROPKEY( \
-            name, \
-            l, \
-            w1, \
-            w2, \
-            b1, \
-            b2, \
-            b3, \
-            b4, \
-            b5, \
-            b6, \
-            b7, \
-            b8, \
-            pid \
-        ) \
-            EXTERN_C const DEVPROPKEY name
-    #endif // INITGUID
-
-// include DEVPKEY_Device_BusReportedDeviceDesc from WinDDK\7600.16385.1\inc\api\devpkey.h
-DEFINE_DEVPROPKEY(
-    DEVPKEY_Device_BusReportedDeviceDesc,
-    0x540b947e,
-    0x8b40,
-    0x45bc,
-    0xa8,
-    0xa2,
-    0x6a,
-    0x0b,
-    0x89,
-    0x4c,
-    0xbd,
-    0xa2,
-    4
-); // DEVPROP_TYPE_STRING
-DEFINE_DEVPROPKEY(
-    DEVPKEY_Device_ContainerId,
-    0x8c7ed206,
-    0x3f8a,
-    0x4827,
-    0xb3,
-    0xab,
-    0xae,
-    0x9e,
-    0x1f,
-    0xae,
-    0xfc,
-    0x6c,
-    2
-); // DEVPROP_TYPE_GUID
-DEFINE_DEVPROPKEY(
-    DEVPKEY_Device_FriendlyName,
-    0xa45c254e,
-    0xdf1c,
-    0x4efd,
-    0x80,
-    0x20,
-    0x67,
-    0xd1,
-    0x46,
-    0xa8,
-    0x50,
-    0xe0,
-    14
-); // DEVPROP_TYPE_STRING
-DEFINE_DEVPROPKEY(
-    DEVPKEY_DeviceDisplay_Category,
-    0x78c34fc8,
-    0x104a,
-    0x4aca,
-    0x9e,
-    0xa4,
-    0x52,
-    0x4d,
-    0x52,
-    0x99,
-    0x6e,
-    0x57,
-    0x5a
-); // DEVPROP_TYPE_STRING_LIST
-DEFINE_DEVPROPKEY(
-    DEVPKEY_Device_LocationInfo,
-    0xa45c254e,
-    0xdf1c,
-    0x4efd,
-    0x80,
-    0x20,
-    0x67,
-    0xd1,
-    0x46,
-    0xa8,
-    0x50,
-    0xe0,
-    15
-); // DEVPROP_TYPE_STRING
-DEFINE_DEVPROPKEY(
-    DEVPKEY_Device_Manufacturer,
-    0xa45c254e,
-    0xdf1c,
-    0x4efd,
-    0x80,
-    0x20,
-    0x67,
-    0xd1,
-    0x46,
-    0xa8,
-    0x50,
-    0xe0,
-    13
-); // DEVPROP_TYPE_STRING
-DEFINE_DEVPROPKEY(
-    DEVPKEY_Device_SecuritySDS,
-    0xa45c254e,
-    0xdf1c,
-    0x4efd,
-    0x80,
-    0x20,
-    0x67,
-    0xd1,
-    0x46,
-    0xa8,
-    0x50,
-    0xe0,
-    26
-); // DEVPROP_TYPE_SECURITY_DESCRIPTOR_STRING
-
 auto Fw::find_all() noexcept
     -> std::expected<Fw::FreeWiliDevices, std::string> {
     HDEVINFO hDevInfo = nullptr;
-
-    /*
-    const uint32_t USB_VID_FW_HUB = 0x0424;
-/// FreeWili USB Hub Product ID.
-const uint32_t USB_PID_FW_HUB = 0x2513;
-
-/// FreeWili Black FTDI VendorID
-const uint32_t USB_VID_FW_FTDI = 0x0403;
-/// FreeWili Black FTDI ProductID
-const uint32_t USB_PID_FW_FTDI = 0x6014;
-
-/// Raspberry Pi Vendor ID
-const uint32_t USB_VID_FW_RPI = 0x2E8A;
-/// Raspberry Pi Pico SDK CDC UART Product ID
-const uint32_t USB_PID_FW_RPI_CDC_PID = 0x000A;
-/// Raspberry Pi Pico SDK UF2 Product ID
-const uint32_t USB_PID_FW_RPI_UF2_PID = 0x0003;
-
-    */
 
     // Helper function to get Registry Property
     auto _getDeviceRegistryProp = [&](SP_DEVINFO_DATA& devInfoData, DWORD prop
