@@ -10,9 +10,11 @@ option(FW_FINDER_BUILD_TESTS "Build tests" ON)
 
 # Library files
 set(SRC_FILES
+    src/fwfinder.cpp
     src/fwfinder_linux.cpp
     src/fwfinder_mac.cpp
     src/fwfinder_windows.cpp
+    src/usbdef.cpp
 )
 
 # Unit test files
@@ -43,7 +45,7 @@ target_include_directories(
 
 set(WIN32_LIB_LIST "")
 if (WIN32)
-    list(APPEND WIN32_LIB_LIST setupapi)
+    list(APPEND WIN32_LIB_LIST setupapi Cfgmgr32)
     add_definitions(-DWIN32_LEAN_AND_MEAN -D_UNICODE -DUNICODE)
 endif ()
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${WIN32_LIB_LIST})

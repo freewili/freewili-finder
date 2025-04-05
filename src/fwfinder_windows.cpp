@@ -5,6 +5,9 @@
     #include <winnls.h>
     #include <errhandlingapi.h>
     #include <tchar.h>
+    #include <winioctl.h>
+    #include <initguid.h>
+    #include <Ntddstor.h>
     #include <cfgmgr32.h> // for MAX_DEVICE_ID_LEN, CM_Get_Parent and CM_Get_Device_ID
     #include <combaseapi.h>
     #include <devguid.h> // for GUID_DEVCLASS_CDROM etc
@@ -15,8 +18,9 @@
     #include <specstrings_strict.h>
     #include <winbase.h>
     #include <winnt.h>
-    #include <initguid.h>
     #include <devpkey.h>
+    #include <fileapi.h>
+//#include <devguid.h>
 
     #include <cstdio>
     #include <cstring>
@@ -178,6 +182,206 @@ auto getUSBInstanceID(std::string value)
         };
         return usb_instance_id;
     }
+}
+
+auto getNodesFromInstanceId(TCHAR* instanceID)
+    -> std::expected<std::string, std::string> {
+    DEVINST parentDevInst = 0;
+    auto res =
+        CM_Locate_DevNode(&parentDevInst, instanceID, CM_LOCATE_DEVNODE_NORMAL);
+    if (res != CR_SUCCESS) {
+        std::stringstream ss;
+        ss << "CM_Locate_DevNode() failed with CR error: " << res;
+        return std::unexpected(ss.str());
+    }
+
+    DEVINST childDevInst = 0;
+    res = CM_Get_Child(&childDevInst, parentDevInst, 0);
+    if (res != CR_SUCCESS) {
+        std::stringstream ss;
+        ss << "CM_Get_Child() failed with CR error: " << res;
+        return std::unexpected(ss.str());
+    }
+    DEVINST siblingDevInst = 0;
+    DEVINST previousDevInst = childDevInst;
+    do {
+        TCHAR childInstanceID[MAX_DEVICE_ID_LEN + 1] {};
+        if (auto res = CM_Get_Device_ID(
+                previousDevInst,
+                childInstanceID,
+                MAX_DEVICE_ID_LEN + 1,
+                0
+            );
+            res != CR_SUCCESS) {
+            std::stringstream ss;
+            ss << "CM_Get_Device_ID() failed with CR error: " << res;
+            return std::unexpected(ss.str());
+        }
+
+        DEVPROPTYPE propertyType = 0;
+        TCHAR childFriendlyName[MAX_DEVICE_ID_LEN + 1] {};
+        ULONG size = MAX_DEVICE_ID_LEN;
+        res = CM_Get_DevNode_Property(
+            previousDevInst,
+            &DEVPKEY_Device_DeviceDesc,
+            &propertyType,
+            (BYTE*)childFriendlyName,
+            &size,
+            0
+        );
+
+        propertyType = 0;
+        TCHAR childClassID[MAX_DEVICE_ID_LEN + 1] {};
+        size = MAX_DEVICE_ID_LEN;
+        res = CM_Get_DevNode_Property(
+            previousDevInst,
+            &DEVPKEY_Device_Class,
+            &propertyType,
+            (BYTE*)childClassID,
+            &size,
+            0
+        );
+
+        DEVPROPTYPE type = DEVPROP_TYPE_STRING;
+        TCHAR childName[1024] {};
+        ULONG childNameSize = 1024;
+        res = CM_Locate_DevNode(&previousDevInst, childInstanceID, 0);
+        res = CM_Get_DevNode_Property(
+            previousDevInst,
+            &DEVPKEY_NAME,
+            &type,
+            (BYTE*)childName,
+            &childNameSize,
+            0
+        );
+
+        type = DEVPROP_TYPE_STRING;
+        TCHAR childPDOName[1024] {};
+        ULONG childPDONameSize = 1024;
+        res = CM_Locate_DevNode(&previousDevInst, childInstanceID, 0);
+        res = CM_Get_DevNode_Property(
+            previousDevInst,
+            &DEVPKEY_Device_PDOName,
+            &type,
+            (BYTE*)childPDOName,
+            &childPDONameSize,
+            0
+        );
+
+        // TODO: This doesn't work yet.
+        CONFIGRET cres;
+        ULONG ifaceListSize = 0;
+        wchar_t* ifaceList = nullptr;
+
+        // Get the size of the device interface list
+        res = CM_Get_Device_Interface_List_Size(
+            &ifaceListSize,
+            (LPGUID)&GUID_DEVINTERFACE_VOLUME,
+            childInstanceID,
+            CM_GET_DEVICE_INTERFACE_LIST_PRESENT
+        );
+
+        ifaceList = new TCHAR[ifaceListSize * 2] {};
+
+        res = CM_Get_Device_Interface_List(
+            (LPGUID)&GUID_DEVINTERFACE_VOLUME,
+            childInstanceID, //L"USB\\VID_2109&PID_0813\\8&216C1825&0&4\\0",
+            ifaceList,
+            ifaceListSize,
+            CM_GET_DEVICE_INTERFACE_LIST_PRESENT
+        );
+
+        // Iterate over the list of device paths
+        TCHAR* sz = ifaceList;
+        while (*sz) {
+            HANDLE hFile = CreateFile(
+                sz,
+                FILE_GENERIC_READ,
+                FILE_SHARE_READ,
+                0,
+                OPEN_EXISTING,
+                0,
+                0
+            );
+            if (hFile != INVALID_HANDLE_VALUE) {
+                WCHAR volumeName[MAX_PATH + 1] = {0};
+                DWORD serialNumber = 0;
+                DWORD maxComponentLen = 0;
+                DWORD fileSystemFlags = 0;
+                WCHAR fileSystemName[MAX_PATH + 1] = {0};
+
+                if (GetVolumeInformationByHandleW(
+                        hFile,
+                        volumeName,
+                        ARRAYSIZE(volumeName),
+                        &serialNumber,
+                        &maxComponentLen,
+                        &fileSystemFlags,
+                        fileSystemName,
+                        ARRAYSIZE(fileSystemName)
+                    )) {
+                    wprintf(L"Volume Name: %s\n", volumeName);
+                    wprintf(L"Serial Number: %lu\n", serialNumber);
+                    wprintf(L"Max Component Length: %lu\n", maxComponentLen);
+                    wprintf(L"File System Flags: %lu\n", fileSystemFlags);
+                    wprintf(L"File System Name: %s\n", fileSystemName);
+                }
+                // Do something with the handle
+                CloseHandle(hFile);
+            }
+            sz += 1 + wcslen(sz);
+        }
+
+        // Free the allocated memory
+        delete[] ifaceList;
+
+        /*
+            CONFIGRET cres;
+    ULONG ifaceListSize = 0;
+    wchar_t* ifaceList = nullptr;
+
+    // Get the size of the device interface list
+    cres = CM_Get_Device_Interface_List_Size(&ifaceListSize, &GUID_DEVINTERFACE_VOLUME, L"USB\\VID_2109&PID_0813\\8&216C1825&0&4\\0", CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
+    if (cres != CR_SUCCESS) {
+        return -1;
+    }
+
+    // Allocate memory for the list
+    ifaceList = new wchar_t[ifaceListSize * 2];
+
+    // Populate the list
+    cres = CM_Get_Device_Interface_List(&GUID_DEVINTERFACE_VOLUME, L"USB\\VID_2109&PID_0813\\8&216C1825&0&4\\0", ifaceList, ifaceListSize, CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
+    if (cres != CR_SUCCESS) {
+        delete[] ifaceList;
+        return -2;
+    }
+
+    // Iterate over the list of device paths
+    wchar_t* sz = ifaceList;
+    while (*sz) {
+        HANDLE hFile = CreateFile(sz, FILE_GENERIC_READ, FILE_SHARE_VALID_FLAGS, 0, OPEN_EXISTING, 0, 0);
+        if (hFile != INVALID_HANDLE_VALUE) {
+            // Do something with the handle
+            CloseHandle(hFile);
+        }
+        sz += 1 + wcslen(sz);
+    }
+
+    // Free the allocated memory
+    delete[] ifaceList;
+        */
+
+        res = CM_Get_Sibling(&siblingDevInst, previousDevInst, 0);
+        if (res == CR_SUCCESS) {
+            previousDevInst = siblingDevInst;
+        }
+        if (res == CR_NO_SUCH_DEVNODE) {
+            // We are done.
+            break;
+        }
+    } while (res == CR_SUCCESS);
+
+    return std::unexpected("TODO");
 }
 
 auto Fw::find_all() noexcept
@@ -360,6 +564,8 @@ auto Fw::find_all() noexcept
             std::println("\tLocation ID: {}", locationIdResult.value());
         }
 
+        getNodesFromInstanceId(instanceID);
+
         // Finally lets add it to the list
         containerDevices[containerIdResult.value()].push_back(Fw::USBDevice {
             .kind = kind,
@@ -459,7 +665,6 @@ static void ListDevices(CONST GUID* pClassGuid, LPCTSTR pszEnumerator) {
         if (status != CR_SUCCESS) {
             continue;
         }
-
         // Display device instance ID
         std::println("Device Instance ID: {}", _toString(szDeviceInstanceID));
 

@@ -37,7 +37,7 @@ TEST(FwFinder, getUSBDeviceTypeFrom) {
 
 TEST(FwFinder, BasicAssertions) {
     //auto finder = Fw::Finder();
-    //Fw::list_all();
+    Fw::list_all();
 
     if (auto fwDevicesResult = Fw::find_all(); fwDevicesResult.has_value()) {
         std::println(
