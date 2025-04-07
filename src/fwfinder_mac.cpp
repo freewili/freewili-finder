@@ -5,8 +5,7 @@
     #include <expected>
     #include <string>
 
-auto Fw::find_all() noexcept
-    -> std::expected<Fw::FreeWiliDevices, std::string> {
+auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
     return std::unexpected("TODO");
 }
 

@@ -20,10 +20,7 @@ TEST(win32, stringFromTCHARRaw) {
 TEST(win32, getLastErrorString) {
     auto errorStringResult = getLastErrorString(0);
     ASSERT_TRUE(errorStringResult.has_value()) << errorStringResult.error();
-    ASSERT_STREQ(
-        errorStringResult.value().c_str(),
-        "The operation completed successfully.\r\n"
-    );
+    ASSERT_STREQ(errorStringResult.value().c_str(), "The operation completed successfully.\r\n");
 }
 
 TEST(win32, stringFromTCHAR) {

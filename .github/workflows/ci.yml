@@ -82,6 +82,17 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
+
+    - name: Install Clang
+      if: runner.os == 'Linux'
+      run: |
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+        sudo apt update
+        sudo apt -y remove clang-18 llvm-18 llvm-18-dev llvm-18-linker-tools llvm-18-runtime
+        sudo apt -y install clang-19 lldb-19 lld-19 libudev-dev
+        sudo ln -sf `which clang-19` /usr/bin/clang
+        sudo ln -sf `which clang++-19` /usr/bin/clang++
+
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type

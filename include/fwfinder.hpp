@@ -25,8 +25,7 @@ enum class USBDeviceType : uint32_t {
 };
 
 auto getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid) -> USBDeviceType;
-
-typedef struct USBDevice USBDevice;
+auto getUSBDeviceTypeName(USBDeviceType type) -> std::string;
 
 /// Common USB device information
 struct USBDevice {
@@ -44,14 +43,31 @@ struct USBDevice {
     /// USB physical location, 0 = first port
     uint8_t location;
 
-    /// USB Mass storage Path or Serial Port Path
-    std::optional<std::string> path_or_port;
+    /// USB Mass storage Path - This is only valid when kind is MassStorage
+    std::optional<std::vector<std::string>> paths;
+    /// Serial Port Path - This is only valid when kind is Serial
+    std::optional<std::string> port;
+
+    /// Internal system path of the USBDevice
+    std::string _raw;
 };
 
 /// Container of all USB Devices.
 typedef std::vector<USBDevice> USBDevices;
-/// Free-Wili Device with all associated USB devices.
-typedef USBDevices FreeWiliDevice;
+
+struct FreeWiliDevice {
+    std::string name;
+    std::string serial;
+
+    USBDevice usbHub;
+    USBDevices usbDevices;
+
+    auto getUSBDevices(USBDeviceType usbDeviceType) const noexcept -> USBDevices;
+
+    /// Helper function to create a FreeWiliDevice from USBDevices
+    static auto fromUSBDevices(const USBDevices& usbDevices) -> std::expected<FreeWiliDevice, std::string>;
+};
+
 /// Free-Wili Devices
 typedef std::vector<FreeWiliDevice> FreeWiliDevices;
 

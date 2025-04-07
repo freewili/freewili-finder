@@ -43,12 +43,16 @@ target_include_directories(
     PUBLIC
     include/)
 
-set(WIN32_LIB_LIST "")
+set(LIB_LIST "")
 if (WIN32)
-    list(APPEND WIN32_LIB_LIST setupapi Cfgmgr32)
+    list(APPEND LIB_LIST setupapi Cfgmgr32)
     add_definitions(-DWIN32_LEAN_AND_MEAN -D_UNICODE -DUNICODE)
+elseif(LINUX)
+    list(APPEND LIB_LIST udev)
+elseif(APPLE)
+    message(STATUS TODO)
 endif ()
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${WIN32_LIB_LIST})
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${LIB_LIST})
 
 if (FW_FINDER_BUILD_TESTS)
     message(STATUS "Enabling tests...")
@@ -72,7 +76,7 @@ if (FW_FINDER_BUILD_TESTS)
 
     target_link_libraries(
         "${CMAKE_PROJECT_NAME}_test"
-        GTest::gtest_main ${WIN32_LIB_LIST}
+        GTest::gtest_main ${LIB_LIST}
     )
 
     # if (WIN32)
