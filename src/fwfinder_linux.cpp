@@ -2,8 +2,9 @@
 
     #include <fwfinder.hpp>
 
-Fw::Finder::Finder() {}
-
-void Fw::list_all() {}
+auto Fw::find_all() noexcept
+    -> std::expected<Fw::FreeWiliDevices, std::string> {
+    return std::unexpected("TODO");
+}
 
 #endif // __linux__

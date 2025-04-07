@@ -20,7 +20,6 @@
     #include <winnt.h>
     #include <devpkey.h>
     #include <fileapi.h>
-//#include <devguid.h>
 
     #include <cstdio>
     #include <cstring>
@@ -256,8 +255,8 @@ auto getNodesFromInstanceId(TCHAR* instanceID)
         );
 
         type = DEVPROP_TYPE_STRING;
-        TCHAR childPDOName[1024] {};
-        ULONG childPDONameSize = 1024;
+        TCHAR childPDOName[MAX_PATH + 1] {};
+        ULONG childPDONameSize = MAX_PATH + 1;
         res = CM_Locate_DevNode(&previousDevInst, childInstanceID, 0);
         res = CM_Get_DevNode_Property(
             previousDevInst,
@@ -268,108 +267,46 @@ auto getNodesFromInstanceId(TCHAR* instanceID)
             0
         );
 
-        // TODO: This doesn't work yet.
-        CONFIGRET cres;
-        ULONG ifaceListSize = 0;
-        wchar_t* ifaceList = nullptr;
-
-        // Get the size of the device interface list
-        res = CM_Get_Device_Interface_List_Size(
-            &ifaceListSize,
-            (LPGUID)&GUID_DEVINTERFACE_VOLUME,
-            childInstanceID,
-            CM_GET_DEVICE_INTERFACE_LIST_PRESENT
+        type = DEVPROP_TYPE_STRING;
+        TCHAR childDeviceDriver[MAX_PATH + 1] {};
+        ULONG childDeviceDriverSize = MAX_PATH + 1;
+        res = CM_Locate_DevNode(&previousDevInst, childInstanceID, 0);
+        res = CM_Get_DevNode_Property(
+            previousDevInst,
+            &DEVPKEY_Device_Driver,
+            &type,
+            (BYTE*)childDeviceDriver,
+            &childDeviceDriverSize,
+            0
         );
 
-        ifaceList = new TCHAR[ifaceListSize * 2] {};
+        // TCHAR sz[MAX_PATH +1]{};
+        // swprintf(sz, L"\\\\?\\GLOBALROOT%s", childPDOName);
 
-        res = CM_Get_Device_Interface_List(
-            (LPGUID)&GUID_DEVINTERFACE_VOLUME,
-            childInstanceID, //L"USB\\VID_2109&PID_0813\\8&216C1825&0&4\\0",
-            ifaceList,
-            ifaceListSize,
-            CM_GET_DEVICE_INTERFACE_LIST_PRESENT
-        );
-
-        // Iterate over the list of device paths
-        TCHAR* sz = ifaceList;
-        while (*sz) {
-            HANDLE hFile = CreateFile(
-                sz,
-                FILE_GENERIC_READ,
-                FILE_SHARE_READ,
-                0,
-                OPEN_EXISTING,
-                0,
-                0
-            );
-            if (hFile != INVALID_HANDLE_VALUE) {
-                WCHAR volumeName[MAX_PATH + 1] = {0};
-                DWORD serialNumber = 0;
-                DWORD maxComponentLen = 0;
-                DWORD fileSystemFlags = 0;
-                WCHAR fileSystemName[MAX_PATH + 1] = {0};
-
-                if (GetVolumeInformationByHandleW(
-                        hFile,
-                        volumeName,
-                        ARRAYSIZE(volumeName),
-                        &serialNumber,
-                        &maxComponentLen,
-                        &fileSystemFlags,
-                        fileSystemName,
-                        ARRAYSIZE(fileSystemName)
-                    )) {
-                    wprintf(L"Volume Name: %s\n", volumeName);
-                    wprintf(L"Serial Number: %lu\n", serialNumber);
-                    wprintf(L"Max Component Length: %lu\n", maxComponentLen);
-                    wprintf(L"File System Flags: %lu\n", fileSystemFlags);
-                    wprintf(L"File System Name: %s\n", fileSystemName);
-                }
-                // Do something with the handle
-                CloseHandle(hFile);
-            }
-            sz += 1 + wcslen(sz);
-        }
-
-        // Free the allocated memory
-        delete[] ifaceList;
-
-        /*
-            CONFIGRET cres;
-    ULONG ifaceListSize = 0;
-    wchar_t* ifaceList = nullptr;
-
-    // Get the size of the device interface list
-    cres = CM_Get_Device_Interface_List_Size(&ifaceListSize, &GUID_DEVINTERFACE_VOLUME, L"USB\\VID_2109&PID_0813\\8&216C1825&0&4\\0", CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
-    if (cres != CR_SUCCESS) {
-        return -1;
-    }
-
-    // Allocate memory for the list
-    ifaceList = new wchar_t[ifaceListSize * 2];
-
-    // Populate the list
-    cres = CM_Get_Device_Interface_List(&GUID_DEVINTERFACE_VOLUME, L"USB\\VID_2109&PID_0813\\8&216C1825&0&4\\0", ifaceList, ifaceListSize, CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
-    if (cres != CR_SUCCESS) {
-        delete[] ifaceList;
-        return -2;
-    }
-
-    // Iterate over the list of device paths
-    wchar_t* sz = ifaceList;
-    while (*sz) {
-        HANDLE hFile = CreateFile(sz, FILE_GENERIC_READ, FILE_SHARE_VALID_FLAGS, 0, OPEN_EXISTING, 0, 0);
-        if (hFile != INVALID_HANDLE_VALUE) {
-            // Do something with the handle
-            CloseHandle(hFile);
-        }
-        sz += 1 + wcslen(sz);
-    }
-
-    // Free the allocated memory
-    delete[] ifaceList;
-        */
+        // HANDLE hFile = CreateFile(
+        //     sz,
+        //     FILE_GENERIC_READ,
+        //     FILE_SHARE_READ,
+        //     0,
+        //     OPEN_EXISTING,
+        //     0,
+        //     0
+        // );
+        // if (hFile != INVALID_HANDLE_VALUE) {
+        //     TCHAR outputBuffer[MAX_PATH+1]{};
+        //     DWORD outputBufferSize = MAX_PATH+1;
+        //     DWORD bytesReturned = 0;
+        //     LPOVERLAPPED lpOverlapped = nullptr;
+        //     PARTITION_INFORMATION                 partInfo;
+        //     auto success = DeviceIoControl(
+        //         (HANDLE)hFile,
+        //         IOCTL_DISK_GET_PARTITION_INFO,
+        //         NULL, 0,
+        //         &partInfo,
+        //         sizeof(partInfo),
+        //         &bytesReturned, NULL);
+        //     bytesReturned = 0;
+        // }
 
         res = CM_Get_Sibling(&siblingDevInst, previousDevInst, 0);
         if (res == CR_SUCCESS) {
@@ -504,6 +441,7 @@ auto Fw::find_all() noexcept
         auto usbInstId = getUSBInstanceID(result.value());
         if (!usbInstId.has_value()) {
             //return std::unexpected(usb_inst_id.error());
+            // TODO
             std::println(
                 "\t\tInvalid VID/PID: {} {}",
                 usbInstId.error(),
@@ -516,12 +454,12 @@ auto Fw::find_all() noexcept
                    )) {
             continue;
         }
-        std::println(
-            "VID: {:X} PID: {:X} Serial: {}",
-            usbInstId.value().vid,
-            usbInstId.value().pid,
-            usbInstId.value().serial
-        );
+        // std::println(
+        //     "VID: {:X} PID: {:X} Serial: {}",
+        //     usbInstId.value().vid,
+        //     usbInstId.value().pid,
+        //     usbInstId.value().serial
+        // );
 
         auto kind = Fw::getUSBDeviceTypeFrom(
             usbInstId.value().vid,
@@ -547,24 +485,25 @@ auto Fw::find_all() noexcept
             }
             name = busDescResult.value();
         }
-        std::println("\tname: {}", name);
 
         // Container ID
         // https://learn.microsoft.com/en-us/windows-hardware/drivers/install/container-ids
         auto containerIdResult =
             _getDeviceProperty(devInfoData, DEVPKEY_Device_ContainerId, true);
         if (containerIdResult.has_value()) {
-            std::println("\tContainer ID: {}", containerIdResult.value());
+            // TODO
+            //std::println("\tContainer ID: {}", containerIdResult.value());
         }
 
         // Location ID
         auto locationIdResult =
             _getDeviceProperty(devInfoData, DEVPKEY_Device_LocationInfo);
         if (locationIdResult.has_value()) {
-            std::println("\tLocation ID: {}", locationIdResult.value());
+            // TODO
+            //std::println("\tLocation ID: {}", locationIdResult.value());
         }
 
-        getNodesFromInstanceId(instanceID);
+        //getNodesFromInstanceId(instanceID);
 
         // Finally lets add it to the list
         containerDevices[containerIdResult.value()].push_back(Fw::USBDevice {
@@ -587,341 +526,7 @@ auto Fw::find_all() noexcept
     // List all connected Disk Drives - GUID_DEVCLASS_DISKDRIVE
 
     return fwDevices;
-    //return std::unexpected("TODO");
-}
-
-    #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-
-// #pragma comment(lib, "setupapi.lib")
-
-// using FN_SetupDiGetDevicePropertyW = BOOL (*)(int, PSP_DEVINFO_DATA, const DEVPROPKEY *, DEVPROPTYPE *, PBYTE, DWORD,
-//                                               PDWORD, DWORD); __attribute__((stdcall)))(__in HDEVINFO DeviceInfoSet,
-//                                               __in PSP_DEVINFO_DATA DeviceInfoData,
-//                                                    __in const DEVPROPKEY *PropertyKey, __out DEVPROPTYPE
-//                                                    *PropertyType,
-//                                                    __out_opt PBYTE PropertyBuffer, __in DWORD PropertyBufferSize,
-//                                                    __out_opt PDWORD RequiredSize, __in DWORD Flags);
-
-// List all USB devices with some additional information
-static void ListDevices(CONST GUID* pClassGuid, LPCTSTR pszEnumerator) {
-    unsigned i = 0;
-    unsigned j = 0;
-    DWORD dwSize = 0;
-    DWORD dwPropertyRegDataType = 0;
-    DEVPROPTYPE ulPropertyType = 0;
-    CONFIGRET status = 0;
-    HDEVINFO hDevInfo = nullptr;
-    SP_DEVINFO_DATA DeviceInfoData {};
-    const static LPCTSTR arPrefix[3] =
-        {TEXT("VID_"), TEXT("PID_"), TEXT("MI_")};
-    TCHAR szDeviceInstanceID[MAX_DEVICE_ID_LEN];
-    TCHAR szDesc[1024];
-    TCHAR szHardwareIDs[4096];
-    WCHAR szBuffer[4096];
-    LPTSTR pszToken = nullptr;
-    LPTSTR pszNextToken = nullptr;
-    TCHAR szVid[MAX_DEVICE_ID_LEN];
-    TCHAR szPid[MAX_DEVICE_ID_LEN];
-    TCHAR szMi[MAX_DEVICE_ID_LEN];
-
-    // Convert TCHAR to std::string, place the error inside the string if
-    // we failed to convert
-    auto _toString = [](const TCHAR* szValue) -> std::string {
-        if (auto result = stringFromTCHARRaw(szValue); result.has_value()) {
-            return result.value();
-        } else {
-            std::stringstream ss;
-            ss << "Error code: #" << result.error() << " ("
-               << getLastErrorString(result.error()).value_or(std::string())
-               << ")";
-            return ss.str();
-        };
-    };
-
-    // List all connected USB devices
-    hDevInfo = SetupDiGetClassDevs(
-        pClassGuid,
-        pszEnumerator,
-        nullptr,
-        pClassGuid != nullptr ? DIGCF_PRESENT : DIGCF_ALLCLASSES | DIGCF_PRESENT
-    );
-    if (hDevInfo == INVALID_HANDLE_VALUE) {
-        return;
-    }
-
-    // Find the ones that are driverless
-    for (i = 0;; i++) {
-        DeviceInfoData.cbSize = sizeof(DeviceInfoData);
-        if (SetupDiEnumDeviceInfo(hDevInfo, i, &DeviceInfoData) == 0) {
-            break;
-        }
-
-        status = CM_Get_Device_ID(
-            DeviceInfoData.DevInst,
-            szDeviceInstanceID,
-            MAX_PATH,
-            0
-        );
-        if (status != CR_SUCCESS) {
-            continue;
-        }
-        // Display device instance ID
-        std::println("Device Instance ID: {}", _toString(szDeviceInstanceID));
-
-        if (SetupDiGetDeviceRegistryProperty(
-                hDevInfo,
-                &DeviceInfoData,
-                SPDRP_DEVICEDESC,
-                &dwPropertyRegDataType,
-                (BYTE*)szDesc,
-                sizeof(szDesc), // The size, in bytes
-                &dwSize
-            )) {
-            std::println("    Device Description: \"{}\"", _toString(szDesc));
-        }
-
-        if (SetupDiGetDeviceRegistryProperty(
-                hDevInfo,
-                &DeviceInfoData,
-                SPDRP_HARDWAREID,
-                &dwPropertyRegDataType,
-                (BYTE*)szHardwareIDs,
-                sizeof(szHardwareIDs), // The size, in bytes
-                &dwSize
-            )) {
-            LPCTSTR pszId = nullptr;
-            std::println("    Hardware IDs:");
-            for (pszId = szHardwareIDs; *pszId != TEXT('\0')
-                 && pszId + dwSize / sizeof(TCHAR)
-                     <= szHardwareIDs + ARRAYSIZE(szHardwareIDs);
-                 pszId += lstrlen(pszId) + 1) {
-                std::println("        \"{}\"", _toString(pszId));
-            }
-        }
-
-        // Retreive the device description as reported by the device itself
-        // On Vista and earlier, we can use only SPDRP_DEVICEDESC
-        // On Windows 7, the information we want ("Bus reported device description") is
-        // accessed through DEVPKEY_Device_BusReportedDeviceDesc
-        // if (SetupDiGetDevicePropertyW(
-        //         hDevInfo,
-        //         &DeviceInfoData,
-        //         &DEVPKEY_Device_BusReportedDeviceDesc,
-        //         &ulPropertyType,
-        //         (BYTE*)szBuffer,
-        //         sizeof(szBuffer),
-        //         &dwSize,
-        //         0
-        //     )
-        //     == 0) {
-        //     continue;
-        // }
-        if (SetupDiGetDevicePropertyW(
-                hDevInfo,
-                &DeviceInfoData,
-                &DEVPKEY_Device_BusReportedDeviceDesc,
-                &ulPropertyType,
-                (BYTE*)szBuffer,
-                sizeof(szBuffer),
-                &dwSize,
-                0
-            )
-            != 0) {
-            std::println(
-                "    Bus Reported Device Description: \"{}\"",
-                _toString(szBuffer)
-            );
-        }
-        if (SetupDiGetDevicePropertyW(
-                hDevInfo,
-                &DeviceInfoData,
-                &DEVPKEY_Device_Manufacturer,
-                &ulPropertyType,
-                (BYTE*)szBuffer,
-                sizeof(szBuffer),
-                &dwSize,
-                0
-            )
-            != 0) {
-            std::println(
-                "    Device Manufacturer: \"{}\"",
-                _toString(szBuffer)
-            );
-        }
-        if (SetupDiGetDevicePropertyW(
-                hDevInfo,
-                &DeviceInfoData,
-                &DEVPKEY_Device_FriendlyName,
-                &ulPropertyType,
-                (BYTE*)szBuffer,
-                sizeof(szBuffer),
-                &dwSize,
-                0
-            )
-            != 0) {
-            std::println(
-                "    Device Friendly Name: \"{}\"",
-                _toString(szBuffer)
-            );
-        }
-        if (SetupDiGetDevicePropertyW(
-                hDevInfo,
-                &DeviceInfoData,
-                &DEVPKEY_Device_LocationInfo,
-                &ulPropertyType,
-                (BYTE*)szBuffer,
-                sizeof(szBuffer),
-                &dwSize,
-                0
-            )
-            != 0) {
-            std::println(
-                "    Device Location Info: \"{}\"",
-                _toString(szBuffer)
-            );
-        }
-        if (SetupDiGetDevicePropertyW(
-                hDevInfo,
-                &DeviceInfoData,
-                &DEVPKEY_Device_SecuritySDS,
-                &ulPropertyType,
-                (BYTE*)szBuffer,
-                sizeof(szBuffer),
-                &dwSize,
-                0
-            )
-            != 0) {
-            // See Security Descriptor Definition Language on MSDN
-            // (http://msdn.microsoft.com/en-us/library/windows/desktop/aa379567(v=vs.85).aspx)
-            std::println(
-                "    Device Security Descriptor String: \"{}\"",
-                _toString(szBuffer)
-            );
-        }
-        if (SetupDiGetDevicePropertyW(
-                hDevInfo,
-                &DeviceInfoData,
-                &DEVPKEY_Device_ContainerId,
-                &ulPropertyType,
-                (BYTE*)szDesc,
-                sizeof(szDesc),
-                &dwSize,
-                0
-            )
-            != 0) {
-            StringFromGUID2((REFGUID)szDesc, szBuffer, ARRAY_SIZE(szBuffer));
-            std::println("    ContainerId: \"{}\"", _toString(szBuffer));
-        }
-        if (SetupDiGetDevicePropertyW(
-                hDevInfo,
-                &DeviceInfoData,
-                &DEVPKEY_DeviceDisplay_Category,
-                &ulPropertyType,
-                (BYTE*)szBuffer,
-                sizeof(szBuffer),
-                &dwSize,
-                0
-            )
-            != 0) {
-            std::println(
-                "    Device Display Category: \"{}\"",
-                _toString(szBuffer)
-            );
-        }
-
-        pszToken = _tcstok_s(szDeviceInstanceID, TEXT("\\#&"), &pszNextToken);
-        while (pszToken != nullptr) {
-            szVid[0] = TEXT('\0');
-            szPid[0] = TEXT('\0');
-            szMi[0] = TEXT('\0');
-            for (j = 0; j < 3; j++) {
-                if (_tcsncmp(pszToken, arPrefix[j], lstrlen(arPrefix[j]))
-                    != 0) {
-                    continue;
-                }
-                switch (j) {
-                    case 0:
-                        _tcscpy_s(szVid, ARRAY_SIZE(szVid), pszToken);
-                        break;
-                    case 1:
-                        _tcscpy_s(szPid, ARRAY_SIZE(szPid), pszToken);
-                        break;
-                    case 2:
-                        _tcscpy_s(szMi, ARRAY_SIZE(szMi), pszToken);
-                        break;
-                    default:
-                        break;
-                }
-            }
-            if (szVid[0] != TEXT('\0')) {
-                std::println("    vid: \"{}\"", _toString(szVid));
-            }
-            if (szPid[0] != TEXT('\0')) {
-                std::println("    pid: \"{}\"", _toString(szPid));
-            }
-            if (szMi[0] != TEXT('\0')) {
-                std::println("    mi: \"{}\"", _toString(szMi));
-            }
-            pszToken = _tcstok_s(nullptr, TEXT("\\#&"), &pszNextToken);
-        }
-    }
 }
 
 // NOLINTEND
-
-//void Fw::list_all() {}
-
-void Fw::list_all() {
-    // // List all connected USB devices
-    // printf (TEXT("---------------------------------------------------\n"));
-    // printf (TEXT("- USB devices -\n"));
-    // printf (TEXT("---------------------------------------------------\n"));
-    // ListDevices(NULL, TEXT("USB"));
-
-    std::println("");
-    std::println("-------------------------------------------------------");
-    std::println("- USBSTOR devices -");
-    std::println("-------------------------------------------------------");
-    ListDevices(nullptr, TEXT("USBSTOR"));
-
-    // printf (TEXT("\n"));
-    // printf (TEXT("--------------------------------------------------\n"));
-    // printf (TEXT("- SD devices -\n"));
-    // printf (TEXT("--------------------------------------------------\n"));
-    // ListDevices(NULL, TEXT("SD"));
-
-    std::println("");
-    std::println("--------------------------------------------------");
-    std::println("USB");
-    std::println("--------------------------------------------------");
-    ListDevices(&GUID_DEVCLASS_USB, nullptr);
-    std::println("");
-
-    std::println("");
-    std::println("--------------------------------------------------");
-    std::println("Ports");
-    std::println("--------------------------------------------------");
-    ListDevices(&GUID_DEVCLASS_PORTS, nullptr);
-    std::println("");
-
-    std::println("");
-    std::println("-----------");
-    std::println("- Disk Drives -");
-    std::println("-----------");
-    // ListDevices(NULL, TEXT("STORAGE\\VOLUME"));
-    //printf (TEXT("\n"));
-    ListDevices(&GUID_DEVCLASS_DISKDRIVE, nullptr);
-
-    std::println("");
-    std::println(
-        "----------------------------------------------------------------"
-    );
-    std::println("- devices with disk drives -");
-    std::println(
-        "----------------------------------------------------------------"
-    );
-    ListDevices(&GUID_DEVCLASS_DISKDRIVE, NULL);
-}
-
-// https://learn.microsoft.com/en-us/answers/questions/699300/how-to-get-drive-letter-from-usb-vid-and-pid
 #endif // _WIN32

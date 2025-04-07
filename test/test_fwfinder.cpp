@@ -36,9 +36,6 @@ TEST(FwFinder, getUSBDeviceTypeFrom) {
 }
 
 TEST(FwFinder, BasicAssertions) {
-    //auto finder = Fw::Finder();
-    Fw::list_all();
-
     if (auto fwDevicesResult = Fw::find_all(); fwDevicesResult.has_value()) {
         std::println(
             "Found {} Free-Wili(s)...",
@@ -49,8 +46,9 @@ TEST(FwFinder, BasicAssertions) {
             ++i;
             for (auto& usbDevice : fwDevice) {
                 std::println(
-                    "{})\t{} {} (VID: {:04X}, PID: {:04X})",
+                    "{})\t{} {} {} (VID: {:04X}, PID: {:04X})",
                     i,
+                    static_cast<uint32_t>(usbDevice.kind),
                     usbDevice.name,
                     usbDevice.serial,
                     usbDevice.vid,
