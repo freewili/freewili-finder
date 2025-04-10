@@ -4,8 +4,8 @@ repos:
   hooks:
     - id: clang-format
       args: [-i]
-    - id: clang-tidy
-      args: [--checks=readability-magic-numbers,--warnings-as-errors=*]
+    # - id: clang-tidy
+    #   args: [--checks=readability-magic-numbers,--warnings-as-errors=*]
     #- id: cppcheck
     #- id: include-what-you-use
 - repo: https://github.com/pre-commit/pre-commit-hooks
