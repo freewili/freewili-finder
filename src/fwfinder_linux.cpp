@@ -11,6 +11,7 @@
     #include <cstdio>
     #include <iostream>
     #include <iomanip>
+    #include <algorithm>
 
 // Helper function to get udev device attribute
 std::string get_device_property(struct udev_device* dev, const char* property) {
