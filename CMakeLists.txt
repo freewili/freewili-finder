@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 
 option(FW_FINDER_BUILD_TESTS "Build tests" ON)
+option(FW_FINDER_ENABLE_BINDINGS_PYTHON "Build Python bindings" OFF)
+add_subdirectory(bindings)
 
 # Library files
 set(SRC_FILES
@@ -35,6 +37,7 @@ endif()
 
 add_library(
     ${CMAKE_PROJECT_NAME}
+    SHARED
     ${SRC_FILES}
 )
 
