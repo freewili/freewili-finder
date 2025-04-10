@@ -30,15 +30,16 @@
     #include <algorithm>
     #include <iterator>
     #include <regex>
+    #include <unordered_map>
     #include <map>
     #include <vector>
+    #include <tuple>
+    #include <cctype>
     #include <fwfinder.hpp>
     #include <fwfinder_windows.hpp>
     #include <usbdef.hpp>
 
 //#define INITGUID
-
-Fw::Finder::Finder() = default;
 
 auto stringFromTCHARRaw(const TCHAR* const msg) -> std::expected<std::string, DWORD> {
     #if defined(UNICODE)
@@ -48,12 +49,29 @@ auto stringFromTCHARRaw(const TCHAR* const msg) -> std::expected<std::string, DW
             success == 0) {
             return std::unexpected(GetLastError());
         }
-        return new_msg;
+        return new_msg.c_str();
     } else {
         return std::unexpected(GetLastError());
     }
     #else
     return std::string(msg);
+    #endif
+}
+
+auto TCHARFromString(std::string value) noexcept -> std::unique_ptr<TCHAR[]> {
+    #if defined(UNICODE)
+    // Get the length required
+    int len = MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, NULL, 0);
+    if (!len) {
+        return nullptr;
+    }
+    std::unique_ptr<TCHAR[]> new_value(new TCHAR[len] {});
+    if (auto success = MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, new_value.get(), len); success == 0) {
+        return nullptr;
+    }
+    return new_value;
+    #else
+    return value.c_str();
     #endif
 }
 
@@ -78,22 +96,29 @@ auto getLastErrorString(DWORD errorCode) -> std::expected<std::string, DWORD> {
     }
 }
 
-auto stringFromTCHAR(const TCHAR* const szValue) -> std::expected<std::string, std::string> {
+/// @brief Convert TCHAR to std::string
+/// @param szValue string to be converted
+/// @return std::string - error is put into the string if there was an error converting
+auto stringFromTCHAR(const TCHAR* const szValue) -> std::string {
     if (auto result = stringFromTCHARRaw(szValue); result.has_value()) {
         return result.value();
     } else {
         std::stringstream ss;
         ss << "Error code: #" << result.error() << " (" << getLastErrorString(result.error()).value_or(std::string())
            << ")";
-        return std::unexpected(ss.str());
+        return ss.str();
     };
 };
 
-auto splitInstanceID(std::string value) -> std::expected<std::vector<std::string>, std::string> {
+/// @brief Helper function to split a string by a key
+/// @param value string to split
+/// @param key key to split string by
+/// @return vector of strings
+auto splitByKey(std::string value, char key) noexcept -> std::vector<std::string> {
     std::size_t current = 0, previous = 0;
     std::vector<std::string> values;
     do {
-        current = value.find('\\', previous);
+        current = value.find(key, previous);
         if (current == std::string::npos) {
             values.push_back(value.substr(previous, value.length() - 1));
             break;
@@ -101,6 +126,11 @@ auto splitInstanceID(std::string value) -> std::expected<std::vector<std::string
         values.push_back(value.substr(previous, current - previous));
         previous = current + 1;
     } while (current != std::string::npos);
+    return values;
+}
+
+auto splitInstanceID(std::string value) -> std::expected<std::vector<std::string>, std::string> {
+    auto values = splitByKey(value, '\\');
     // We should always have 3 values here.
     if (values.size() != 3) {
         std::stringstream ss;
@@ -158,68 +188,248 @@ auto getUSBInstanceID(std::string value) -> std::expected<USBInstanceID, std::st
     }
 }
 
-auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
-    HDEVINFO hDevInfo = nullptr;
+// Helper function to get Registry Property
+auto _getDeviceRegistryProp(HDEVINFO hDevInfo, SP_DEVINFO_DATA& devInfoData, DWORD prop) noexcept
+    -> std::expected<std::string, std::string> {
+    DWORD dwPropertyRegDataType = 0;
+    TCHAR buffer[2048] {};
+    if (SetupDiGetDeviceRegistryProperty(
+            hDevInfo,
+            &devInfoData,
+            prop,
+            &dwPropertyRegDataType,
+            reinterpret_cast<BYTE*>(buffer),
+            sizeof(buffer),
+            nullptr
+        )
+        == FALSE) {
+        auto errorCode = GetLastError();
+        if (auto res = getLastErrorString(errorCode); res.has_value()) {
+            return std::unexpected(res.value());
+        } else {
+            std::stringstream ss;
+            ss << "Error code: #" << errorCode;
+            return std::unexpected(ss.str());
+        }
+    }
+    return stringFromTCHAR(buffer);
+};
 
-    // Helper function to get Registry Property
-    auto _getDeviceRegistryProp = [&](SP_DEVINFO_DATA& devInfoData,
-                                      DWORD prop) -> std::expected<std::string, std::string> {
-        DWORD dwPropertyRegDataType = 0;
-        TCHAR buffer[1024] {};
-        if (SetupDiGetDeviceRegistryProperty(
-                hDevInfo,
-                &devInfoData,
-                prop,
-                &dwPropertyRegDataType,
-                reinterpret_cast<BYTE*>(buffer),
-                sizeof(buffer),
-                nullptr
-            )
-            == FALSE) {
-            auto errorCode = GetLastError();
-            if (auto res = getLastErrorString(errorCode); res.has_value()) {
-                return std::unexpected(res.value());
-            } else {
-                std::stringstream ss;
-                ss << "Error code: #" << errorCode;
-                return std::unexpected(ss.str());
-            }
-        }
-        return stringFromTCHAR(buffer);
-    };
-    // Helper function to get device Property
-    auto _getDeviceProperty = [](DEVINST devInst, const DEVPROPKEY key) -> std::expected<std::string, std::string> {
-        DEVPROPTYPE propertyType = DEVPROP_TYPE_STRING;
-        TCHAR szValue[MAX_DEVICE_ID_LEN + 1] {};
-        ULONG size = MAX_DEVICE_ID_LEN;
-        if (auto res = CM_Get_DevNode_Property(devInst, &key, &propertyType, (BYTE*)szValue, &size, 0);
-            res != CR_SUCCESS) {
-            std::stringstream ss;
-            ss << "CM_Get_DevNode_Property() failed with CR error: " << res;
-            return std::unexpected(ss.str());
-        }
-        return stringFromTCHAR(szValue);
-    };
-    // Helper function to get device Property GUID as a String
-    auto _getDevicePropertyGUID = [](DEVINST devInst, const DEVPROPKEY key) -> std::expected<std::string, std::string> {
-        DEVPROPTYPE propertyType = DEVPROP_TYPE_GUID;
-        GUID guid {};
-        ULONG size = sizeof(guid);
-        if (auto res = CM_Get_DevNode_Property(devInst, &key, &propertyType, (BYTE*)&guid, &size, 0);
-            res != CR_SUCCESS) {
-            std::stringstream ss;
-            ss << "CM_Get_DevNode_Property() failed with CR error: " << res;
-            return std::unexpected(ss.str());
-        }
-        TCHAR szValue[MAX_DEVICE_ID_LEN + 1] {};
-        if (StringFromGUID2(guid, szValue, MAX_DEVICE_ID_LEN) == 0) {
+// Helper function to get device Property
+auto _getDeviceProperty(DEVINST devInst, const DEVPROPKEY key) noexcept -> std::expected<std::string, std::string> {
+    DEVPROPTYPE propertyType = DEVPROP_TYPE_STRING;
+    TCHAR szValue[4096 + 1] {};
+    ULONG size = 4096;
+    if (auto res = CM_Get_DevNode_Property(devInst, &key, &propertyType, (BYTE*)szValue, &size, 0); res != CR_SUCCESS) {
+        std::stringstream ss;
+        ss << "CM_Get_DevNode_Property() failed with CR error: " << res;
+        return std::unexpected(ss.str());
+    }
+    return stringFromTCHAR(szValue);
+};
+
+// Helper function to get device Property GUID
+auto _getDevicePropertyGUID(DEVINST devInst, const DEVPROPKEY key) noexcept -> std::expected<GUID, std::string> {
+    DEVPROPTYPE propertyType = DEVPROP_TYPE_GUID;
+    GUID guid {};
+    ULONG size = sizeof(guid);
+    if (auto res = CM_Get_DevNode_Property(devInst, &key, &propertyType, (BYTE*)&guid, &size, 0); res != CR_SUCCESS) {
+        std::stringstream ss;
+        ss << "CM_Get_DevNode_Property() failed with CR error: " << res;
+        return std::unexpected(ss.str());
+    }
+    return guid;
+};
+
+// Helper function to get device Property GUID as a String
+auto _getDevicePropertyGUIDString(DEVINST devInst, const DEVPROPKEY key) noexcept
+    -> std::expected<std::string, std::string> {
+    if (auto guidResult = _getDevicePropertyGUID(devInst, key); guidResult.has_value()) {
+        TCHAR szValue[4096 + 1] {};
+        if (StringFromGUID2(guidResult.value(), szValue, 4096) == 0) {
             return std::unexpected("StringFromGUID2() failed");
         }
         return stringFromTCHAR(szValue);
-    };
+    } else {
+        return std::unexpected(guidResult.error());
+    }
+};
 
+typedef std::unordered_map<std::string, std::string> VolumesMap;
+
+/// @brief  Helper function to get all volumes attached to the host
+/// @return VolumesMap on success, std::string on failure
+auto getVolumes() noexcept -> std::expected<VolumesMap, std::string> {
+    VolumesMap volumeLookupByDevice;
+    {
+        // example: "\\?\Volume{b6f17eca-5e7a-4475-9da7-7497fdd869c6}\"
+        TCHAR szVolumeName[MAX_PATH + 1] {};
+        DWORD szVolumeNameSize = ARRAYSIZE(szVolumeName) - 1;
+        HANDLE handle = INVALID_HANDLE_VALUE;
+        // Get the first volume
+        if (handle = FindFirstVolume(&szVolumeName[0], szVolumeNameSize); handle == INVALID_HANDLE_VALUE) {
+            auto lastError = GetLastError();
+            if (auto errorRes = getLastErrorString(lastError); errorRes.has_value()) {
+                return std::unexpected(errorRes.value());
+            } else {
+                std::stringstream ss;
+                ss << "FindFirstVolume() failed with error code '" << lastError << "'";
+                return std::unexpected(ss.str());
+            }
+        }
+        // Loop through the rest of the volumes
+        do {
+            // Get the volume name
+            TCHAR szDeviceName[MAX_PATH + 1] {};
+            // Query with "\\?\" removed from the front and the last \\ removed
+            szVolumeName[_tcslen(szVolumeName) - 1] = TEXT('\0');
+            if (auto res = QueryDosDevice(&szVolumeName[4], szDeviceName, ARRAYSIZE(szDeviceName)); res == 0) {
+                auto lastError = GetLastError();
+                if (auto errorRes = getLastErrorString(lastError); errorRes.has_value()) {
+                    return std::unexpected(errorRes.value());
+                } else {
+                    std::stringstream ss;
+                    ss << "QueryDosDevice() failed with error code '" << lastError << "'";
+                    return std::unexpected(ss.str());
+                }
+            }
+            // Convert the TCHAR to string and store it
+            auto deviceName = stringFromTCHAR(szDeviceName);
+            auto volumeName = stringFromTCHAR(szVolumeName);
+            // Append a backslash to the end of the volume name
+            volumeName += R"(\)";
+            volumeLookupByDevice[deviceName] = volumeName;
+            // Find the next volume
+            if (auto res = FindNextVolume(handle, szVolumeName, szVolumeNameSize); res != 0) {
+                continue;
+            } else {
+                BOOL _ = FindVolumeClose(handle);
+                auto lastError = GetLastError();
+                if (lastError == ERROR_NO_MORE_FILES) {
+                    // We are done
+                    break;
+                }
+                // Something bad happened
+                if (auto errorRes = getLastErrorString(lastError); errorRes.has_value()) {
+                    return std::unexpected(errorRes.value());
+                } else {
+                    std::stringstream ss;
+                    ss << "FindNextVolume() failed with error code '" << lastError << "'";
+                    return std::unexpected(ss.str());
+                }
+            }
+            std::fill(szVolumeName, szVolumeName + ARRAYSIZE(szVolumeName) - 1, TEXT('\0'));
+        } while (handle != INVALID_HANDLE_VALUE);
+    }
+    return volumeLookupByDevice;
+}
+
+struct EnumeratedDevice {
+    SP_DEVINFO_DATA deviceInfo;
+    std::string description;
+    std::string busDescription;
+    std::string instanceId;
+    std::string pdo;
+    GUID classGuid;
+    std::vector<std::string> children;
+    std::vector<std::string> removableRelations;
+    std::string driveLetter;
+};
+
+typedef std::unordered_map<std::string, std::shared_ptr<EnumeratedDevice>> EnumeratedDevices;
+
+/// @brief Get All Devices sorted by DriverKey and Instance ID
+/// @return std::tuple<devicesByDriveKey, devicesByInstanceId> on success, std::string on error
+auto getEnumeratedDevices() noexcept -> std::expected<std::tuple<EnumeratedDevices, EnumeratedDevices>, std::string> {
+    EnumeratedDevices devicesByDriveKey, devicesByInstanceId;
+
+    HDEVINFO hDevInfo = nullptr;
+    SP_DEVINFO_DATA devInfoData {};
+    devInfoData.cbSize = sizeof(devInfoData);
+    if (hDevInfo = SetupDiGetClassDevs(nullptr, nullptr, nullptr, DIGCF_ALLCLASSES | DIGCF_PRESENT);
+        hDevInfo == INVALID_HANDLE_VALUE) {
+        std::stringstream ss;
+        ss << "SetupDiGetClassDevs(GUID_DEVCLASS_USB) failed: "
+           << getLastErrorString(GetLastError()).value_or(std::string());
+        return std::unexpected(ss.str());
+    }
+
+    for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &devInfoData); ++i) {
+        auto enumeratedDevice = std::make_shared<EnumeratedDevice>();
+        enumeratedDevice->deviceInfo = devInfoData;
+
+        // Instance ID
+        if (auto instanceIdResult = _getDeviceProperty(devInfoData.DevInst, DEVPKEY_Device_InstanceId);
+            instanceIdResult.has_value()) {
+            enumeratedDevice->instanceId = instanceIdResult.value();
+            devicesByInstanceId[instanceIdResult.value()] = enumeratedDevice;
+        } else {
+            return std::unexpected("unable to get device instance id");
+        }
+        // Device Description
+        if (auto result = _getDeviceProperty(devInfoData.DevInst, DEVPKEY_Device_DeviceDesc); result.has_value()) {
+            enumeratedDevice->description = result.value();
+        }
+        // Bus Reported Device Description
+        if (auto result = _getDeviceProperty(devInfoData.DevInst, DEVPKEY_Device_BusReportedDeviceDesc);
+            result.has_value()) {
+            enumeratedDevice->busDescription = result.value();
+        }
+        // Device PDO Name
+        if (auto result = _getDeviceProperty(devInfoData.DevInst, DEVPKEY_Device_PDOName); result.has_value()) {
+            enumeratedDevice->pdo = result.value();
+        }
+        // Device Class GUID
+        if (auto result = _getDevicePropertyGUID(devInfoData.DevInst, DEVPKEY_Device_ClassGuid); result.has_value()) {
+            enumeratedDevice->classGuid = result.value();
+        }
+        // Driver Key
+        if (auto result = _getDeviceRegistryProp(hDevInfo, devInfoData, SPDRP_DRIVER); result.has_value()) {
+            devicesByDriveKey[result.value()] = enumeratedDevice;
+        } else {
+            // This can fail, not everything has a driver key
+        }
+        // Get Children
+        if (auto result = _getDeviceProperty(devInfoData.DevInst, DEVPKEY_Device_Children); result.has_value()) {
+            auto children = splitByKey(result.value(), '\0');
+            // convert all the values to upper case
+            for (auto&& child : children) {
+                std::transform(child.begin(), child.end(), child.begin(), [](char c) { return std::toupper(c); });
+            }
+            enumeratedDevice->children = children;
+        }
+        // Get RemovalRelations
+        if (auto result = _getDeviceProperty(devInfoData.DevInst, DEVPKEY_Device_RemovalRelations);
+            result.has_value()) {
+            auto values = splitByKey(result.value(), '\0');
+            // convert all the values to upper case
+            for (auto&& value : values) {
+                std::transform(value.begin(), value.end(), value.begin(), [](char c) { return std::toupper(c); });
+            }
+            enumeratedDevice->removableRelations = values;
+        }
+    }
+    return std::make_tuple(devicesByDriveKey, devicesByInstanceId);
+}
+
+auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
+    EnumeratedDevices devicesByDriverKey, devicesByInstanceId;
+    if (auto result = getEnumeratedDevices(); result.has_value()) {
+        std::tie(devicesByDriverKey, devicesByInstanceId) = result.value();
+    } else {
+        std::stringstream ss;
+        ss << "getEnumeratedDevices() failed: " << result.error();
+        return std::unexpected(ss.str());
+    }
+    HDEVINFO hDevInfo = nullptr;
+    VolumesMap volumes;
+    if (auto result = getVolumes(); result.has_value()) {
+        volumes = result.value();
+    } else {
+        // TODO, do we care if this fails?
+    }
     // List all connected USB devices - GUID_DEVCLASS_USB
-    if (hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_USB, nullptr, nullptr, DIGCF_PRESENT);
+    if (hDevInfo = SetupDiGetClassDevs(&GUID_DEVCLASS_USB, nullptr, nullptr, DIGCF_ALLCLASSES | DIGCF_PRESENT);
         hDevInfo == INVALID_HANDLE_VALUE) {
         std::stringstream ss;
         ss << "SetupDiGetClassDevs(GUID_DEVCLASS_USB) failed: "
@@ -228,6 +438,7 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     }
 
     std::map<std::string, USBDevices> containerDevices;
+    std::map<std::string, std::string> volumeDevices;
     for (auto i = 0;; i++) {
         // Get Device information
         SP_DEVINFO_DATA devInfoData {};
@@ -253,40 +464,109 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
             ss << "CM_Get_Device_ID() failed with CR error: " << res;
             return std::unexpected(ss.str());
         }
-        auto instanceIdResult = stringFromTCHAR(szInstanceID);
-        if (!instanceIdResult.has_value()) {
-            return std::unexpected(instanceIdResult.error());
-        }
-        std::string instanceID = instanceIdResult.value();
-        // This grabs all VID/PID devices we care about for now.
-        auto usbInstId = getUSBInstanceID(instanceID);
-        if (!usbInstId.has_value()) {
-            // TODO
-            //std::println("\t\tInvalid VID/PID: {} {}", usbInstId.error(), instanceID);
+        auto instanceId = stringFromTCHAR(szInstanceID);
+        auto deviceFromInstanceId = devicesByInstanceId.find(instanceId);
+        std::vector<std::string> driveLetters;
+        if (auto guidResult = _getDevicePropertyGUID(devInfoData.DevInst, DEVPKEY_Device_ClassGuid);
+            !guidResult.has_value()) {
+            // Not all devices have a class GUID
             continue;
-        } else if (!Fw::is_vid_pid_whitelisted(usbInstId.value().vid, usbInstId.value().pid)) {
-            continue;
+        } else {
+            GUID guid = guidResult.value();
+            auto guidStringResult = _getDevicePropertyGUIDString(devInfoData.DevInst, DEVPKEY_Device_ClassGuid);
+            if (!IsEqualGUID(guid, GUID_DEVCLASS_USB) && !IsEqualGUID(guid, GUID_DEVCLASS_PORTS)
+                && !IsEqualGUID(guid, GUID_DEVCLASS_VOLUME) && !IsEqualGUID(guid, GUID_DEVCLASS_DISKDRIVE)) {
+                // We don't care about anything else right now.
+                continue;
+            }
+
+            if (IsEqualGUID(guid, GUID_DEVCLASS_VOLUME)) {
+                auto volumeName = volumes.find(deviceFromInstanceId->second->pdo);
+                if (volumeName != volumes.end()) {
+                    TCHAR szVolumePathNames[1024] {};
+                    DWORD szVolumePathNamesSize = sizeof(szVolumePathNames);
+                    DWORD length = 0;
+                    auto szVolumeName = TCHARFromString(volumeName->second);
+                    if (szVolumeName) {
+                        auto success = GetVolumePathNamesForVolumeName(
+                            szVolumeName.get(),
+                            szVolumePathNames,
+                            szVolumePathNamesSize,
+                            &length
+                        );
+                        if (success) {
+                            deviceFromInstanceId->second->driveLetter = stringFromTCHAR(szVolumePathNames);
+                            driveLetters.push_back(stringFromTCHAR(szVolumePathNames));
+                        }
+                    }
+                }
+            }
         }
-        auto kind = Fw::getUSBDeviceTypeFrom(usbInstId.value().vid, usbInstId.value().pid);
 
         // Lets get all the children
         DEVINST childDevInst = 0;
         auto res = CM_Get_Child(&childDevInst, devInfoData.DevInst, 0);
         if (res != CR_SUCCESS) {
-            std::stringstream ss;
-            ss << "CM_Get_Child() failed with CR error: " << res;
-            return std::unexpected(ss.str());
+            // Not all devices have children
+            continue;
+            // std::stringstream ss;
+            // ss << "CM_Get_Child() failed with CR error: " << res;
+            //return std::unexpected(ss.str());
         }
         DEVINST siblingDevInst = 0;
         DEVINST previousDevInst = childDevInst;
         std::optional<std::string> portName = std::nullopt;
+        std::optional<std::vector<std::string>> pathNames = std::nullopt;
         do {
+            TCHAR szChildInstanceID[MAX_DEVICE_ID_LEN + 1] {};
+            auto success = CM_Get_Device_ID(previousDevInst, szChildInstanceID, MAX_DEVICE_ID_LEN, 0);
+            auto childDeviceFromInstanceId = devicesByInstanceId.find(instanceId);
+
+            // Driver Key
+            std::shared_ptr<EnumeratedDevice> deviceByDriverKey;
+            if (auto result = _getDeviceProperty(previousDevInst, DEVPKEY_Device_Driver); result.has_value()) {
+                auto iter = devicesByDriverKey.find(result.value());
+                deviceByDriverKey = iter->second;
+            } else {
+                // This can fail, not everything has a driver key
+            }
             bool isPort = false;
+            bool isVolume = false;
+            // if (auto guidResult = _getDevicePropertyGUID(previousDevInst, DEVPKEY_Device_ClassGuid); guidResult.has_value()) {
+            //     auto guid = guidResult.value();
+            //     isVolume = guidResult.value() == GUID_DEVCLASS_VOLUME;
+            //     bool isUSB = guidResult.value() == GUID_DEVCLASS_USB;
+            //     isPort = guidResult.value() == GUID_DEVCLASS_PORTS;
+
+            //     if (IsEqualGUID(guid, GUID_DEVCLASS_DISKDRIVE) || IsEqualGUID(guid, GUID_DEVCLASS_VOLUME)) {
+            //         // TODO
+            //         TCHAR szChildInstanceID[MAX_DEVICE_ID_LEN + 1] {};
+            //         auto success = CM_Get_Device_ID(previousDevInst, szChildInstanceID, MAX_DEVICE_ID_LEN, 0);
+
+            //         auto deviceNameResult = _getDeviceProperty(previousDevInst, DEVPKEY_NAME);
+            //         auto devicePDONameResult = _getDeviceProperty(previousDevInst, DEVPKEY_Device_PDOName);
+            //         auto deviceRemovalRelationsResult = _getDeviceProperty(previousDevInst, DEVPKEY_Device_RemovalRelations);
+            //         DEVINST parentDevInst;
+            //         success = CM_Get_Parent(&parentDevInst, devInfoData.DevInst, 0);
+            //         auto parentNameResult = _getDeviceProperty(devInfoData.DevInst, DEVPKEY_NAME);
+            //         auto parentPDONameResult = _getDeviceProperty(devInfoData.DevInst, DEVPKEY_Device_PDOName);
+            //         auto parentRemovalRelationsResult = _getDeviceProperty(devInfoData.DevInst, DEVPKEY_Device_RemovalRelations);
+
+            //         TCHAR szParentInstanceID[MAX_DEVICE_ID_LEN + 1] {};
+            //         success = CM_Get_Device_ID(parentDevInst, szParentInstanceID, MAX_DEVICE_ID_LEN, 0);
+            //         int z = 0;
+            //         z += 1;
+            //     }
+            // }
+
             if (auto deviceClassIdResult = _getDeviceProperty(previousDevInst, DEVPKEY_Device_Class);
                 deviceClassIdResult.has_value()) {
                 isPort = deviceClassIdResult.value().contains("Ports");
+                isVolume = deviceClassIdResult.value().contains("DiskDrive");
             }
             auto deviceNameResult = _getDeviceProperty(previousDevInst, DEVPKEY_NAME);
+            auto devicePDONameResult = _getDeviceProperty(previousDevInst, DEVPKEY_Device_PDOName);
+            auto deviceRemovalRelationsResult = _getDeviceProperty(previousDevInst, DEVPKEY_Device_RemovalRelations);
             // Get the Serial Port Value "USB Serial Device (COM6)"
             if (isPort && deviceNameResult.has_value()) {
                 std::regex re(R"(COM\d{1,3})");
@@ -295,6 +575,11 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
                     return std::unexpected("Failed to regex_match Hex value of VID");
                 }
                 portName = comPortMatch[0];
+            }
+            // Get the volume paths
+            if (isVolume && devicePDONameResult.has_value()) {
+                // TODO
+                isVolume = false;
             }
 
             res = CM_Get_Sibling(&siblingDevInst, previousDevInst, 0);
@@ -308,7 +593,7 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
         } while (res == CR_SUCCESS);
 
         // name = Bus Reported Device Description + Device Description
-        auto descResult = _getDeviceRegistryProp(devInfoData, SPDRP_DEVICEDESC);
+        auto descResult = _getDeviceRegistryProp(hDevInfo, devInfoData, SPDRP_DEVICEDESC);
         auto busDescResult = _getDeviceProperty(devInfoData.DevInst, DEVPKEY_Device_BusReportedDeviceDesc);
 
         std::string name;
@@ -338,15 +623,31 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
                 }
             }
         }
+        // This grabs all VID/PID devices we care about for now.
+        auto usbInstId = getUSBInstanceID(instanceId);
+        if (!usbInstId.has_value()) {
+            // TODO
+            //std::println("\t\tInvalid VID/PID: {} {}", usbInstId.error(), instanceID);
+            continue;
+        } else if (!Fw::is_vid_pid_whitelisted(usbInstId.value().vid, usbInstId.value().pid)) {
+            continue;
+        }
+        auto kind = Fw::getUSBDeviceTypeFrom(usbInstId.value().vid, usbInstId.value().pid);
+
         // We get a double hit here, lets ignore it for now.
         // This shows up in device manager under Other devices as RP2 Boot
         if (location == 0 && kind == Fw::USBDeviceType::MassStorage) {
             continue;
         }
 
+        if (kind == Fw::USBDeviceType::MassStorage) {
+            int z = 0;
+            z += 1;
+        }
+
         // Container ID
         // https://learn.microsoft.com/en-us/windows-hardware/drivers/install/container-ids
-        if (auto containerIdResult = _getDevicePropertyGUID(devInfoData.DevInst, DEVPKEY_Device_ContainerId);
+        if (auto containerIdResult = _getDevicePropertyGUIDString(devInfoData.DevInst, DEVPKEY_Device_ContainerId);
             !containerIdResult.has_value()) {
             return std::unexpected("Failed to get containerId");
         } else {
@@ -358,9 +659,9 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
                 .name = name,
                 .serial = usbInstId.value().serial,
                 .location = static_cast<uint8_t>(location),
-                .paths = std::nullopt, // TODO
+                .paths = driveLetters, // TODO
                 .port = portName,
-                ._raw = instanceID,
+                ._raw = instanceId,
             });
         }
     }

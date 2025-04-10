@@ -25,7 +25,7 @@ auto stringFromTCHARRaw(const TCHAR* const msg) -> std::expected<std::string, DW
 auto getLastErrorString(DWORD errorCode) -> std::expected<std::string, DWORD>;
 
 // Convert TCHAR to std::string, return string representation of GetLastError() otherwise.
-auto stringFromTCHAR(const TCHAR* const msg) -> std::expected<std::string, std::string>;
+auto stringFromTCHAR(const TCHAR* const msg) -> std::string;
 
 /// @brief Split the Device instance ID by backspaces.
 /// @param value Instance ID (ie. "USB\VID_0403&PID_6014\FW4607")

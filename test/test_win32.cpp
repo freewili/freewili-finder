@@ -13,7 +13,7 @@ TEST(win32, stringFromTCHARRaw) {
     const TCHAR* const buffer = TEXT("Hello World!");
     auto converted = stringFromTCHARRaw(buffer);
     ASSERT_TRUE(converted.has_value());
-    ASSERT_EQ(converted.value().length(), 13);
+    ASSERT_EQ(converted.value().length(), 12);
     ASSERT_STREQ(converted.value().c_str(), "Hello World!");
 }
 
@@ -25,10 +25,9 @@ TEST(win32, getLastErrorString) {
 
 TEST(win32, stringFromTCHAR) {
     const TCHAR* const buffer = TEXT("Hello World!");
-    auto converted = stringFromTCHARRaw(buffer);
-    ASSERT_TRUE(converted.has_value());
-    ASSERT_EQ(converted.value().length(), 13);
-    ASSERT_STREQ(converted.value().c_str(), "Hello World!");
+    std::string converted = stringFromTCHAR(buffer);
+    ASSERT_EQ(converted.length(), 12);
+    ASSERT_STREQ(converted.c_str(), "Hello World!");
 }
 
 TEST(win32, getUSBInstanceID) {
