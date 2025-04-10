@@ -78,10 +78,10 @@ typedef std::vector<FreeWiliDevice> FreeWiliDevices;
    *
    * @code{.cpp}
    *
-   * #include <fw/finder.hpp>
+   * #include <fwfinder.hpp>
    *
    * // Find and display all Devices connected
-   * if (auto fw_devices = Fw::find_all(); !fw_devices.has_value()) {
+   * if (auto fw_devices = Fw::find_all(); fw_devices.has_value()) {
    *    for (auto& device : fw_devices.value()) {
    *      std::println("VID: {}, PID: {}, Name: {}, Serial: {}, Kind: {}",
    *        device.vid, device.pid, device.name, device.serial, device.kind);
