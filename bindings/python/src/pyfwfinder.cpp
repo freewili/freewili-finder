@@ -13,10 +13,6 @@
 
 namespace nb = nanobind;
 
-int add(int a, int b) {
-    return a + b;
-}
-
 auto find_all() -> Fw::FreeWiliDevices {
     if (auto devicesResult = Fw::find_all(); !devicesResult.has_value()) {
         PyErr_SetString(PyExc_RuntimeError, devicesResult.error().c_str());
@@ -27,8 +23,6 @@ auto find_all() -> Fw::FreeWiliDevices {
 }
 
 NB_MODULE(pyfwfinder, m) {
-    m.def("add", &add);
-
     nb::enum_<Fw::USBDeviceType>(m, "USBDeviceType")
         .value("Hub", Fw::USBDeviceType::Hub)
         .value("Serial", Fw::USBDeviceType::Serial)
@@ -49,8 +43,6 @@ NB_MODULE(pyfwfinder, m) {
         .def_ro("port", &Fw::USBDevice::port)
         .def_ro("_raw", &Fw::USBDevice::_raw);
 
-    //nb::class_<Fw::USBDevices>(m, "USBDevices").def(nb::init<>());
-
     nb::class_<Fw::FreeWiliDevice>(m, "FreeWiliDevice")
         .def(nb::init<>())
         .def_ro("name", &Fw::FreeWiliDevice::name)
@@ -58,8 +50,6 @@ NB_MODULE(pyfwfinder, m) {
         .def_ro("usb_hub", &Fw::FreeWiliDevice::usbHub)
         .def_ro("usb_devices", &Fw::FreeWiliDevice::usbDevices)
         .def("get_usb_devices", &Fw::FreeWiliDevice::getUSBDevices);
-
-    //nb::class_<Fw::FreeWiliDevices>(m, "FreeWiliDevices"); //.def(nb::init<Fw::FreeWiliDevices>());
 
     m.def("find_all", &find_all);
 }
