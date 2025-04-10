@@ -360,6 +360,7 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
                 .location = static_cast<uint8_t>(location),
                 .paths = std::nullopt, // TODO
                 .port = portName,
+                ._raw = instanceID,
             });
         }
     }

@@ -55,6 +55,7 @@ TEST(FwFinder, BasicAssertions) {
                     }
                     printf("\n");
                 }
+                printf("\t\t%s\n", usbDevice._raw.c_str());
             }
         }
     } else {
