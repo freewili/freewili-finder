@@ -101,7 +101,7 @@ auto findSerialPort(io_object_t entry, int level) noexcept -> std::expected<std:
         if (calloutPath && CFGetTypeID(calloutPath) == CFStringGetTypeID()) {
             char path[256] {};
             CFStringGetCString((CFStringRef)calloutPath, path, sizeof(path), kCFStringEncodingUTF8);
-            printf("✅ Found serial device: %s\n", path);
+            // printf("✅ Found serial device: %s\n", path);
             serialPort = path;
         }
         if (calloutPath) {
