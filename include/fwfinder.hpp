@@ -41,7 +41,7 @@ struct USBDevice {
     /// Serial of the device
     std::string serial;
     /// USB physical location, 0 = first port
-    uint8_t location;
+    uint32_t location;
 
     /// USB Mass storage Path - This is only valid when kind is MassStorage
     std::optional<std::vector<std::string>> paths;

@@ -220,9 +220,9 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
             IOObjectRelease(usbDevice);
             continue;
         }
-        uint8_t addr = 0;
-        if (auto result = getPropertyAsInt(usbDevice, CFSTR("USB Address")); result.has_value()) {
-            addr = static_cast<uint8_t>(result.value());
+        uint32_t addr = 0;
+        if (auto result = getPropertyAsInt(usbDevice, CFSTR("locationID")); result.has_value()) {
+            addr = result.value();
         }
 
         std::string containerId;
