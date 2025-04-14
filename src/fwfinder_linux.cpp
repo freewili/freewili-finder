@@ -217,7 +217,7 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
                 .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
                 .vid = vid,
                 .pid = pid,
-                .name = productName,
+                .name = manufacturer + " " + productName,
                 .serial = serial,
                 .location = static_cast<uint8_t>(location),
                 .paths = diskPathIter == disks.end()
