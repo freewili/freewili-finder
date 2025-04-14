@@ -14,6 +14,10 @@ enum class USBDeviceType : uint32_t {
     Hub,
     /// Serial Port (COMx) on windows
     Serial,
+    /// Serial Port MainCPU
+    SerialMain,
+    /// Serial Port DisplayCPU
+    SerialDisplay,
     /// Mass Storage Device
     MassStorage,
     /// ESP32 USB (JTAG/RTT)

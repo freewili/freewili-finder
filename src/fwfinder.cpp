@@ -21,6 +21,12 @@ auto Fw::getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid) -> Fw::USBDeviceType {
         } else if (pid == USB_PID_FW_RPI_UF2_PID) {
             return Fw::USBDeviceType::MassStorage;
         }
+    } else if (vid == USB_VID_FW_ICS) {
+        if (pid == USB_PID_FW_MAIN_CDC_PID) {
+            return Fw::USBDeviceType::SerialMain;
+        } else if (pid == USB_PID_FW_DISPLAY_CDC_PID) {
+            return Fw::USBDeviceType::SerialDisplay;
+        }
     }
     return Fw::USBDeviceType::Other;
 }
@@ -33,6 +39,10 @@ auto Fw::getUSBDeviceTypeName(Fw::USBDeviceType type) -> std::string {
             return "FTDI";
         case Fw::USBDeviceType::Serial:
             return "Serial";
+        case Fw::USBDeviceType::SerialMain:
+            return "Serial Main";
+        case Fw::USBDeviceType::SerialDisplay:
+            return "Serial Display";
         case Fw::USBDeviceType::MassStorage:
             return "Mass Storage";
         case Fw::USBDeviceType::ESP32:
