@@ -256,19 +256,17 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
 
         auto kind = Fw::getUSBDeviceTypeFrom(vid, pid);
 
-        containerDevices[containerId].push_back(
-            USBDevice {
-                .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
-                .vid = vid,
-                .pid = pid,
-                .name = manuName + " " + productName,
-                .serial = serial,
-                .location = addr,
-                .paths = std::nullopt,
-                .port = serialPort,
-                ._raw = ""
-            }
-        );
+        containerDevices[containerId].push_back(USBDevice {
+            .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
+            .vid = vid,
+            .pid = pid,
+            .name = manuName + " " + productName,
+            .serial = serial,
+            .location = addr,
+            .paths = std::nullopt,
+            .port = serialPort,
+            ._raw = ""
+        });
         if (!storagePaths.empty()) {
             containerDevices[containerId].back().paths = storagePaths;
         }
