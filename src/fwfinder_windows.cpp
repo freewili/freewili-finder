@@ -25,6 +25,7 @@
 
     #include <cstdio>
     #include <cstring>
+    #include <cassert>
     #include <expected>
     #include <sstream>
     #include <string>
@@ -117,12 +118,16 @@ auto stringFromTCHAR(const TCHAR* const szValue) -> std::string {
 /// @param key key to split string by
 /// @return vector of strings
 auto splitByKey(std::string value, char key) noexcept -> std::vector<std::string> {
+    if (value.contains("SWD") && key == '\0') {
+        int z = 0;
+        z += 1;
+    }
     std::size_t current = 0, previous = 0;
     std::vector<std::string> values;
     do {
         current = value.find(key, previous);
         if (current == std::string::npos) {
-            values.push_back(value.substr(previous, value.length() - 1));
+            values.push_back(value.substr(previous, value.length() - previous));
             break;
         }
         values.push_back(value.substr(previous, current - previous));
@@ -331,6 +336,7 @@ struct EnumeratedDevice {
     std::string description;
     std::string busDescription;
     std::string instanceId;
+    std::string driverKey;
     std::string containerId;
     std::string pdo;
     GUID classGuid;
@@ -341,13 +347,53 @@ struct EnumeratedDevice {
     uint16_t vid;
     uint16_t pid;
     std::string serial;
+    std::optional<std::string> port;
+    std::optional<std::vector<std::string>> driveLetters;
 };
 
 typedef std::unordered_map<std::string, std::shared_ptr<EnumeratedDevice>> EnumeratedDevices;
 
+auto populateVolumeNames(
+    HDEVINFO hDevInfo,
+    std::shared_ptr<EnumeratedDevice> device,
+    EnumeratedDevices driverByKeyName
+) noexcept -> std::expected<std::optional<std::vector<std::string>>, std::string> {
+    if (IsEqualGUID(device->classGuid, GUID_DEVCLASS_VOLUME)) {
+        VolumesMap volumes;
+        if (auto result = getVolumes(); result.has_value()) {
+            volumes = result.value();
+        } else {
+            return std::nullopt;
+        }
+        auto volumeName = volumes.find(device->pdo);
+        std::vector<std::string> driveLetters;
+        if (volumeName != volumes.end()) {
+            TCHAR szVolumePathNames[255] {};
+            DWORD szVolumePathNamesSize = sizeof(szVolumePathNames);
+            DWORD length = 0;
+            auto szVolumeName = TCHARFromString(volumeName->second);
+            if (szVolumeName) {
+                auto success = GetVolumePathNamesForVolumeName(
+                    szVolumeName.get(),
+                    szVolumePathNames,
+                    szVolumePathNamesSize,
+                    &length
+                );
+                if (success) {
+                    driveLetters.push_back(stringFromTCHAR(szVolumePathNames));
+                }
+            }
+        }
+        device->driveLetters = driveLetters;
+        return driveLetters;
+    }
+    return std::nullopt;
+}
+
 /// @brief Get All Devices sorted by DriverKey and Instance ID
 /// @return std::tuple<devicesByDriverKey, devicesByInstanceId> on success, std::string on error
-auto getEnumeratedDevices() noexcept -> std::expected<std::tuple<EnumeratedDevices, EnumeratedDevices>, std::string> {
+auto getEnumeratedDevices() noexcept
+    -> std::expected<std::tuple<EnumeratedDevices, EnumeratedDevices, HDEVINFO>, std::string> {
     EnumeratedDevices devicesByDriverKey, devicesByInstanceId;
 
     HDEVINFO hDevInfo = nullptr;
@@ -370,6 +416,12 @@ auto getEnumeratedDevices() noexcept -> std::expected<std::tuple<EnumeratedDevic
             instanceIdResult.has_value()) {
             enumeratedDevice->instanceId = instanceIdResult.value();
             devicesByInstanceId[instanceIdResult.value()] = enumeratedDevice;
+
+            if (auto result = getUSBInstanceID(instanceIdResult.value()); result.has_value()) {
+                enumeratedDevice->vid = result->vid;
+                enumeratedDevice->pid = result->pid;
+                enumeratedDevice->serial = result->serial;
+            }
         } else {
             return std::unexpected("unable to get device instance id");
         }
@@ -392,6 +444,7 @@ auto getEnumeratedDevices() noexcept -> std::expected<std::tuple<EnumeratedDevic
         }
         // Driver Key
         if (auto result = _getDeviceRegistryProp(hDevInfo, devInfoData, SPDRP_DRIVER); result.has_value()) {
+            enumeratedDevice->driverKey = result.value();
             devicesByDriverKey[result.value()] = enumeratedDevice;
         } else {
             // This can fail, not everything has a driver key
@@ -422,12 +475,147 @@ auto getEnumeratedDevices() noexcept -> std::expected<std::tuple<EnumeratedDevic
             enumeratedDevice->containerId = result.value();
         }
     }
-    return std::make_tuple(devicesByDriverKey, devicesByInstanceId);
+
+    return std::make_tuple(devicesByDriverKey, devicesByInstanceId, hDevInfo);
 }
 
 // <Hub, HubChildren>
 typedef std::unordered_map<std::shared_ptr<EnumeratedDevice>, std::vector<std::shared_ptr<EnumeratedDevice>>>
     EnumeratedHubDevices;
+
+// auto createUSBDeviceFrom(EnumeratedDevice& device) noexcept -> std::expected<Fw::USBDevice, std::string> {
+
+// }
+
+auto findSerialPort(
+    HDEVINFO allDeviceInfo,
+    std::shared_ptr<EnumeratedDevice> device,
+    const EnumeratedDevices& devicesByInstanceId,
+    uint32_t index,
+    uint32_t level
+) noexcept -> std::expected<std::optional<std::string>, std::string> {
+    assert(level <= 1024);
+    for (auto&& childName : device->children) {
+        if (auto childIter = devicesByInstanceId.find(childName); childIter == devicesByInstanceId.end()) {
+            continue;
+        } else {
+            if (!IsEqualGUID(childIter->second->classGuid, GUID_DEVCLASS_PORTS)) {
+                if (auto result =
+                        findSerialPort(allDeviceInfo, childIter->second, devicesByInstanceId, index, level + 1);
+                    result.has_value()) {
+                    return result.value();
+                }
+                continue;
+            }
+            // Get the serial port if we have it
+            BYTE port[64] {};
+            if (auto result = SetupDiGetCustomDeviceProperty(
+                    allDeviceInfo,
+                    &childIter->second->deviceInfo,
+                    TEXT("PortName"),
+                    0,
+                    nullptr,
+                    port,
+                    sizeof(port),
+                    nullptr
+                );
+                !result) {
+                auto errorCode = GetLastError();
+                if (auto res = getLastErrorString(errorCode); res.has_value()) {
+                    return std::unexpected("SetupDiGetCustomDeviceProperty() Error " + res.value());
+                } else {
+                    std::stringstream ss;
+                    ss << "SetupDiGetCustomDeviceProperty() Error code: #" << errorCode;
+                    return std::unexpected(ss.str());
+                }
+            } else {
+                return stringFromTCHAR(reinterpret_cast<TCHAR*>(port));
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+auto findVolumePaths(
+    HDEVINFO allDeviceInfo,
+    std::shared_ptr<EnumeratedDevice> device,
+    const EnumeratedDevices& devicesByInstanceId,
+    const EnumeratedDevices& devicesByDriverKey,
+    uint32_t index,
+    uint32_t level
+) noexcept -> std::expected<std::optional<std::vector<std::string>>, std::string> {
+    assert(level <= 1024);
+
+    VolumesMap volumes;
+    if (auto result = getVolumes(); result.has_value()) {
+        volumes = result.value();
+    } else {
+        return std::unexpected(result.error());
+    }
+    for (auto&& childName : device->children) {
+        if (auto childIter = devicesByInstanceId.find(childName); childIter == devicesByInstanceId.end()) {
+            continue;
+        } else {
+            for (auto&& removableRelation : childIter->second->removableRelations) {
+                if (auto deviceResult = devicesByInstanceId.find(removableRelation);
+                    deviceResult == devicesByInstanceId.end()) {
+                    continue;
+                } else {
+                    if (auto result = findVolumePaths(
+                            allDeviceInfo,
+                            deviceResult->second,
+                            devicesByInstanceId,
+                            devicesByDriverKey,
+                            index,
+                            level + 1
+                        );
+                        result.has_value() && result.value()) {
+                        return result.value();
+                    }
+                }
+            }
+
+            if (!IsEqualGUID(childIter->second->classGuid, GUID_DEVCLASS_VOLUME)) {
+                if (auto result = findVolumePaths(
+                        allDeviceInfo,
+                        childIter->second,
+                        devicesByInstanceId,
+                        devicesByDriverKey,
+                        index,
+                        level + 1
+                    );
+                    result.has_value() && result.value()) {
+                    return result.value();
+                }
+            }
+            // Get the volume names if we have it
+            auto volumeName = volumes.find(device->pdo);
+            std::vector<std::string> driveLetters;
+            if (volumeName != volumes.end()) {
+                // 4 = "x:\\\0" * 26 letters
+                TCHAR szVolumePathNames[4 * 27] {};
+                DWORD szVolumePathNamesSize = sizeof(szVolumePathNames);
+                DWORD length = 0;
+                auto szVolumeName = TCHARFromString(volumeName->second);
+                if (szVolumeName) {
+                    auto success = GetVolumePathNamesForVolumeName(
+                        szVolumeName.get(),
+                        szVolumePathNames,
+                        szVolumePathNamesSize,
+                        &length
+                    );
+                    if (success) {
+                        std::string volumePaths = stringFromTCHAR(szVolumePathNames);
+                        auto foundDriveLetters = splitByKey(volumePaths, '\0');
+                        driveLetters.insert(driveLetters.begin(), foundDriveLetters.begin(), foundDriveLetters.end());
+                        return driveLetters;
+                    }
+                }
+            }
+        }
+    }
+    return std::nullopt;
+}
 
 /// @brief Get All USB HubDevices filtered by VendorID and ProductID
 /// @param devicesByInstanceId List of devices from getEnumeratedDevices()
@@ -438,9 +626,30 @@ typedef std::unordered_map<std::shared_ptr<EnumeratedDevice>, std::vector<std::s
 auto getHubEnumeratedDevices(
     const EnumeratedDevices& devicesByDriverKey,
     const EnumeratedDevices& devicesByInstanceId,
+    HDEVINFO allDeviceInfo,
     std::optional<uint16_t> vid,
     std::optional<uint16_t> pid
 ) noexcept -> std::expected<EnumeratedHubDevices, std::string> {
+    #if 0
+    // This is used for debugging purposes
+    for (auto& d : devicesByDriverKey) {
+        if (d.second->instanceId.contains("USB") || d.second->instanceId.contains("STOR") || d.second->instanceId.contains("VOL")) {
+            std::cout << "key:  " << d.first << "\t" << d.second->instanceId << "\n";
+        }
+    }
+    for (auto& d : devicesByInstanceId) {
+        if (d.first.contains("USB") || d.first.contains("STOR") || d.first.contains("VOL")) {
+            std::cout << "inst: " << d.first << "\n";
+            std::cout << "\tDKEY: " << d.second->driverKey << "\n";
+            std::cout << "\tPDO:  " << d.second->pdo << "\n";
+            for (auto& child : d.second->removableRelations) {
+                auto iter = devicesByInstanceId.find(child);
+                std::cout << "\t\t" << child << "\n";
+
+            }
+        }
+    }
+    #endif
     EnumeratedHubDevices hubs;
 
     HDEVINFO hDevInfo = nullptr;
@@ -605,40 +814,52 @@ auto getHubEnumeratedDevices(
                 auto name = stringFromTCHAR(driverKeyName->DriverKeyName);
                 if (auto iter = devicesByDriverKey.find(name); iter == devicesByDriverKey.end()) {
                     // Something bad happened here.
+                    CloseHandle(handle);
                     std::stringstream ss;
                     ss << "Failed to find '" << name << "' by driver key.";
                     return std::unexpected(ss.str());
                 } else {
                     auto enumeratedDevice = iter->second;
                     if (!enumeratedDevice) {
+                        CloseHandle(handle);
                         return std::unexpected("Failed to get enumeratedDevice by driver key. Value is null");
                     }
-                    // This grabs all VID/PID devices we care about for now.
-                    auto usbInstId = getUSBInstanceID(enumeratedDevice->instanceId);
-                    if (usbInstId.has_value()) {
-                        enumeratedDevice->vid = usbInstId->vid;
-                        enumeratedDevice->pid = usbInstId->pid;
-                        enumeratedDevice->serial = usbInstId->serial;
+                    //enumeratedDevice->driverKey = name;
+                    if (auto serialPort = findSerialPort(allDeviceInfo, enumeratedDevice, devicesByInstanceId, i, 0);
+                        serialPort.has_value()) {
+                        enumeratedDevice->port = serialPort.value();
+                    } else {
+                        // TODO: std::cerr << serialPort.error();
                     }
+                    if (auto volumePaths = findVolumePaths(
+                            allDeviceInfo,
+                            enumeratedDevice,
+                            devicesByInstanceId,
+                            devicesByDriverKey,
+                            i,
+                            0
+                        );
+                        volumePaths.has_value()) {
+                        enumeratedDevice->driveLetters = volumePaths.value();
+                    } else {
+                        // TODO: std::cerr << serialPort.error();
+                    }
+
                     enumeratedDevice->location = i;
-                    // Get the serial port if we have it
-                    // TODO
-                    // Get the drive letters if we have it
-                    // TODO
                     hubs[enumeratedHubDevice].push_back(enumeratedDevice);
                 }
             }
         }
     }
-
     return hubs;
 }
 
 auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
     // Get all USB Devices connected to the host
     EnumeratedDevices devicesByDriverKey, devicesByInstanceId;
+    HDEVINFO allDeviceInfo = nullptr;
     if (auto result = getEnumeratedDevices(); result.has_value()) {
-        std::tie(devicesByDriverKey, devicesByInstanceId) = result.value();
+        std::tie(devicesByDriverKey, devicesByInstanceId, allDeviceInfo) = result.value();
     } else {
         std::stringstream ss;
         ss << "getEnumeratedDevices() failed: " << result.error();
@@ -646,7 +867,8 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     }
     // Get all Hubs connected to the host
     EnumeratedHubDevices hubs;
-    if (auto result = getHubEnumeratedDevices(devicesByDriverKey, devicesByInstanceId, std::nullopt, std::nullopt);
+    if (auto result =
+            getHubEnumeratedDevices(devicesByDriverKey, devicesByInstanceId, allDeviceInfo, std::nullopt, std::nullopt);
         result.has_value()) {
         hubs = result.value();
     } else {
@@ -661,32 +883,6 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     } else {
         // TODO, do we care if this fails?
     }
-
-    // auto getPaths = [&](std::shared_ptr<EnumeratedDevice> device) noexcept -> std::optional<std::vector<std::string>> {
-    //     if (!IsEqualGUID(device->classGuid, GUID_DEVCLASS_VOLUME)) {
-    //         return std::nullopt;
-    //     }
-    //     auto volumeName = volumes.find(device->pdo);
-    //     std::vector<std::string> driveLetters;
-    //     if (volumeName != volumes.end()) {
-    //         TCHAR szVolumePathNames[1024] {};
-    //         DWORD szVolumePathNamesSize = sizeof(szVolumePathNames);
-    //         DWORD length = 0;
-    //         auto szVolumeName = TCHARFromString(volumeName->second);
-    //         if (szVolumeName) {
-    //             auto success = GetVolumePathNamesForVolumeName(
-    //                 szVolumeName.get(),
-    //                 szVolumePathNames,
-    //                 szVolumePathNamesSize,
-    //                 &length
-    //             );
-    //             if (success) {
-    //                 driveLetters.push_back(stringFromTCHAR(szVolumePathNames));
-    //             }
-    //         }
-    //     }
-    //     return driveLetters;
-    // };
 
     FreeWiliDevices fwDevices;
     for (auto&& hub : hubs) {
@@ -711,8 +907,8 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
                 .name = child->busDescription + " (" + child->description + ")",
                 .serial = child->serial,
                 .location = child->location,
-                .paths = std::nullopt, // TODO
-                .port = "", // TODO
+                .paths = child->driveLetters, // TODO
+                .port = child->port,
                 ._raw = child->instanceId,
             });
         }
