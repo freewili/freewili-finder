@@ -17,7 +17,7 @@ FetchContent_MakeAvailable(nanobind)
 
 nanobind_add_module(
     pyfwfinder
-    NB_SHARED STABLE_ABI LTO
+    NB_STATIC STABLE_ABI LTO
     src/pyfwfinder.cpp
 )
 

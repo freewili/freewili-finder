@@ -23,7 +23,8 @@ Homepage = "https://github.com/freewili/freewili-finder"
 # Protect the configuration against future changes in scikit-build-core
 minimum-version = "build-system.requires"
 cmake.args = [
-  "-DUSE_FEATURE=ON",
+  "-DFW_FINDER_ENABLE_BINDINGS_PYTHON=ON",
+  "-DFW_FINDER_BUILD_TESTS=OFF",
 ]
 
 # Setuptools-style build caching in a local directory
@@ -35,6 +36,9 @@ wheel.py-api = "cp312"
 [tool.cibuildwheel]
 # Necessary to see build output from the actual compilation
 build-verbosity = 1
+before-build = "python -m pip install wheel"
+manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64"
+manylinux-aarch64-image = "quay.io/pypa/manylinux_2_34_aarch64"
 
 # Run pytest to ensure that the package was correctly built
 test-command = "pytest {project}/tests"
@@ -43,6 +47,17 @@ test-requires = "pytest"
 # Don't test Python 3.8 wheels on macOS/arm64
 test-skip="cp38-macosx_*:arm64"
 
-# Needed for full C++17 support
+
 [tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "10.15"
+MACOSX_DEPLOYMENT_TARGET = "10.15" # Needed for full C++23 support
+
+[tool.cibuildwheel.macos]
+archs = ["universal2"]
+before-build = "brew install cmake llvm@19"
+
+[tool.cibuildwheel.linux]
+before-build = "dnf install -y cmake clang systemd-devel"
+archs = "auto aarch64"
+
+[tool.cibuildwheel.windows]
+before-build = "choco install llvm"

@@ -6,9 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
+option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 option(FW_FINDER_BUILD_TESTS "Build tests" ON)
 option(FW_FINDER_ENABLE_BINDINGS_PYTHON "Build Python bindings" OFF)
-add_subdirectory(bindings)
+
+
 
 # Library files
 set(SRC_FILES
@@ -37,9 +39,14 @@ endif()
 
 add_library(
     ${CMAKE_PROJECT_NAME}
-    SHARED
     ${SRC_FILES}
 )
+
+set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
+                        POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}
+                        )
+
+add_subdirectory(bindings)
 
 target_include_directories(
     ${CMAKE_PROJECT_NAME}
@@ -57,7 +64,7 @@ elseif(APPLE)
     find_library(COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
     list(APPEND LIB_LIST ${IOKIT_FRAMEWORK} ${COREFOUNDATION_FRAMEWORK})
 endif ()
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${LIB_LIST})
+target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${LIB_LIST})
 
 if (FW_FINDER_BUILD_TESTS)
     message(STATUS "Enabling tests...")
