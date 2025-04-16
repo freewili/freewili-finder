@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 option(FW_FINDER_BUILD_TESTS "Build tests" ON)
 option(FW_FINDER_ENABLE_BINDINGS_PYTHON "Build Python bindings" OFF)
 
@@ -38,18 +38,18 @@ else()
 endif()
 
 add_library(
-    ${CMAKE_PROJECT_NAME}
+    ${PROJECT_NAME}
     ${SRC_FILES}
 )
 
-set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
-                        POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}
-                        )
+# set_target_properties(${PROJECT_NAME} PROPERTIES
+#                         POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}
+#                         )
 
 add_subdirectory(bindings)
 
 target_include_directories(
-    ${CMAKE_PROJECT_NAME}
+    ${PROJECT_NAME}
     PUBLIC
     include/)
 
@@ -64,7 +64,7 @@ elseif(APPLE)
     find_library(COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
     list(APPEND LIB_LIST ${IOKIT_FRAMEWORK} ${COREFOUNDATION_FRAMEWORK})
 endif ()
-target_link_libraries(${CMAKE_PROJECT_NAME} PUBLIC ${LIB_LIST})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${LIB_LIST})
 
 if (FW_FINDER_BUILD_TESTS)
     message(STATUS "Enabling tests...")
@@ -81,25 +81,25 @@ if (FW_FINDER_BUILD_TESTS)
     enable_testing()
 
     add_executable(
-        "${CMAKE_PROJECT_NAME}_test"
+        "${PROJECT_NAME}_test"
         ${SRC_FILES}
         ${TEST_SRC_FILES}
     )
 
     target_link_libraries(
-        "${CMAKE_PROJECT_NAME}_test"
+        "${PROJECT_NAME}_test"
         GTest::gtest_main ${LIB_LIST}
     )
 
     # if (WIN32)
-    #     target_link_libraries(${CMAKE_PROJECT_NAME}_test PRIVATE setupapi)
+    #     target_link_libraries(${PROJECT_NAME}_test PRIVATE setupapi)
     # endif ()
 
     target_include_directories(
-        "${CMAKE_PROJECT_NAME}_test"
+        "${PROJECT_NAME}_test"
         PUBLIC
         include/)
 
     include(GoogleTest)
-    gtest_discover_tests("${CMAKE_PROJECT_NAME}_test")
+    gtest_discover_tests("${PROJECT_NAME}_test")
 endif()
