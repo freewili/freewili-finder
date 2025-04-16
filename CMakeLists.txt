@@ -51,7 +51,10 @@ add_subdirectory(bindings)
 target_include_directories(
     ${PROJECT_NAME}
     PUBLIC
-    include/)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set(LIB_LIST "")
 if (WIN32)
