@@ -35,4 +35,4 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 install(TARGETS pyfwfinder DESTINATION pyfwfinder)
-install(FILES __init__.py DESTINATION pyfwfinder)
+install(FILES src/pyfwfinder/__init__.py DESTINATION pyfwfinder)

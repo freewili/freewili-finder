@@ -35,3 +35,6 @@ build/
 Testing/
 latex/
 html/
+wheelhouse/
+*.pyc
+*.whl

@@ -49,6 +49,8 @@ auto Fw::getUSBDeviceTypeName(Fw::USBDeviceType type) -> std::string {
             return "ESP32";
         case Fw::USBDeviceType::Other:
             return "Other";
+        case Fw::USBDeviceType::_MaxValue:
+            return "_MaxValue";
     };
     return "Error";
 }

@@ -26,6 +26,9 @@ enum class USBDeviceType : uint32_t {
     FTDI,
     /// Some other USB device attached to the same hub
     Other,
+
+    // Keep this at the end
+    _MaxValue,
 };
 
 auto getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid) -> USBDeviceType;
@@ -97,39 +100,4 @@ typedef std::vector<FreeWiliDevice> FreeWiliDevices;
    */
 auto find_all() noexcept -> std::expected<FreeWiliDevices, std::string>;
 
-class Finder {
-  public:
-    Finder();
-};
-
-void list_all();
-
 }; // namespace Fw
-
-// USB
-//  - VID
-//  - VID
-//  - Location ID
-//  - Name
-//  - Serial
-
-// Serial Port
-//  - VID
-//  - PID
-//  - Serial
-//  - Location ID
-//  - ComPort
-
-// USB Mass Storage (UF2 bootloader)
-//  - VID
-//  - PID
-//  - Location ID
-//  - Path
-
-// ESP32 USB
-//  - VID
-//  - PID
-//  - Location ID
-//  - Serial?
-
-// Do we care about the HUB?

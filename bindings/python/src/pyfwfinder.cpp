@@ -26,10 +26,14 @@ NB_MODULE(pyfwfinder, m) {
     nb::enum_<Fw::USBDeviceType>(m, "USBDeviceType")
         .value("Hub", Fw::USBDeviceType::Hub)
         .value("Serial", Fw::USBDeviceType::Serial)
+        .value("SerialMain", Fw::USBDeviceType::SerialMain)
+        .value("SerialDisplay", Fw::USBDeviceType::SerialDisplay)
         .value("MassStorage", Fw::USBDeviceType::MassStorage)
         .value("ESP32", Fw::USBDeviceType::ESP32)
         .value("FTDI", Fw::USBDeviceType::FTDI)
-        .value("Other", Fw::USBDeviceType::Other);
+        .value("Other", Fw::USBDeviceType::Other)
+        .value("_MaxValue", Fw::USBDeviceType::_MaxValue)
+        .export_values();
 
     nb::class_<Fw::USBDevice>(m, "USBDevice")
         .def(nb::init<>())
