@@ -114,8 +114,14 @@ if (FW_FINDER_BUILD_TESTS)
         GIT_REPOSITORY https://github.com/google/googletest.git
         GIT_TAG v1.16.0
     )
+if (WIN32)
     # For Windows: Prevent overriding the parent project's compiler/linker settings
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    # I couldn't for the life of me get google test to link correctly on windows when BUILD_SHARED_LIBS is ON
+    # gtest was placing the gtest.dll inside a subdirectory bin and the executable was getting error code 0xc0000135
+    set(BUILD_SHARED_LIBS OFF)
+endif ()
+
     FetchContent_MakeAvailable(googletest)
 
     enable_testing()
@@ -128,12 +134,8 @@ if (FW_FINDER_BUILD_TESTS)
 
     target_link_libraries(
         "${PROJECT_NAME}_test"
-        GTest::gtest_main ${LIB_LIST}
+        GTest::gtest_main ${LIB_LIST} ${PROJECT_NAME}
     )
-
-    # if (WIN32)
-    #     target_link_libraries(${PROJECT_NAME}_test PRIVATE setupapi)
-    # endif ()
 
     target_include_directories(
         "${PROJECT_NAME}_test"
