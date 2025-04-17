@@ -27,7 +27,9 @@ BraceWrapping:
   AfterControlStatement: MultiLine
   AfterEnum: false
   AfterStruct: false
+  AfterFunction: false
   SplitEmptyFunction: false
+  IndentBraces: false
 BreakConstructorInitializers: AfterColon
 BreakInheritanceList: AfterColon
 BreakStringLiterals: false
@@ -48,6 +50,7 @@ IndentWrappedFunctionNames: false
 KeepEmptyLinesAtTheStartOfBlocks: false
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: Inner
+PenaltyReturnTypeOnItsOwnLine: 1000 # if you want everything on one line when it fits
 PointerAlignment: Left
 ReflowComments: false
 SortIncludes: false
