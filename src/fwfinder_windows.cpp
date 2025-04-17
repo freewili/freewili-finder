@@ -919,6 +919,12 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
             // TOOD
         }
     }
+    // Sort the devices by serial number
+    std::sort(fwDevices.begin(), fwDevices.end(), [](const Fw::USBDevice& lhs, const Fw::USBDevice& rhs) {
+        // order smallest to largest
+        return lhs.serial < rhs.serial;
+    });
+
     return fwDevices;
 }
 
