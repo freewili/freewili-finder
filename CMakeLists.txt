@@ -119,6 +119,7 @@ if (WIN32)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     # I couldn't for the life of me get google test to link correctly on windows when BUILD_SHARED_LIBS is ON
     # gtest was placing the gtest.dll inside a subdirectory bin and the executable was getting error code 0xc0000135
+    set(OLD_BUILD_SHARED_LIBS_VALUE BUILD_SHARED_LIBS)
     set(BUILD_SHARED_LIBS OFF)
 endif ()
 
@@ -144,4 +145,8 @@ endif ()
 
     include(GoogleTest)
     gtest_discover_tests("${PROJECT_NAME}_test")
+    # Restore the value
+    if (WIN32)
+        set(BUILD_SHARED_LIBS OLD_BUILD_SHARED_LIBS_VALUE)
+    endif ()
 endif()
