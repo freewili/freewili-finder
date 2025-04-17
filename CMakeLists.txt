@@ -9,7 +9,6 @@ include(FetchContent)
 # ============================================================================
 # Options
 # ============================================================================
-option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 option(FW_BUILD_STATIC "Build static library." ON)
 option(FW_FINDER_BUILD_TESTS "Build tests" ON)
 option(FW_FINDER_ENABLE_BINDINGS_PYTHON "Build Python bindings" OFF)
@@ -52,6 +51,7 @@ endif()
 
 add_library(
     ${PROJECT_NAME}
+    SHARED
     ${SRC_FILES}
 )
 
@@ -106,7 +106,7 @@ endif ()
 # ============================================================================
 # Testing ====================================================================
 # ============================================================================
-if (FW_FINDER_BUILD_TESTS)
+if (FW_FINDER_BUILD_TESTS and FW_BUILD_STATIC)
     message(STATUS "Enabling tests...")
     # Include GoogleTest
     FetchContent_Declare(
@@ -135,7 +135,7 @@ endif ()
 
     target_link_libraries(
         "${PROJECT_NAME}_test"
-        GTest::gtest_main ${LIB_LIST} ${PROJECT_NAME}
+        GTest::gtest_main ${LIB_LIST} ${PROJECT_NAME}-static
     )
 
     target_include_directories(
