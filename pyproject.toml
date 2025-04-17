@@ -39,7 +39,7 @@ wheel.py-api = "cp312"
 build-verbosity = 1
 before-build = "python -m pip install wheel"
 manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64"
-manylinux-aarch64-image = "quay.io/pypa/manylinux_2_34_aarch64"
+manylinux-aarch64-image = "quay.io/pypa/manylinux_2_34_aarch64:2025.04.05-1"
 skip = ["pp* *-manylinux_i686 *-musllinux_*"]
 
 # Run pytest to ensure that the package was correctly built
@@ -58,7 +58,7 @@ before-build = "brew install cmake llvm@19"
 
 [tool.cibuildwheel.linux]
 before-build = "dnf install -y cmake clang systemd-devel"
-archs = "x86_64 aarch64"
+archs = ["x86_64", "aarch64"]
 
 [tool.cibuildwheel.windows]
 before-build = "choco install llvm"
