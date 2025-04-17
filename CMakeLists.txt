@@ -106,7 +106,7 @@ endif ()
 # ============================================================================
 # Testing ====================================================================
 # ============================================================================
-if (FW_FINDER_BUILD_TESTS and FW_BUILD_STATIC)
+if (FW_FINDER_BUILD_TESTS AND FW_BUILD_STATIC)
     message(STATUS "Enabling tests...")
     # Include GoogleTest
     FetchContent_Declare(
