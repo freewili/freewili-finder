@@ -55,7 +55,8 @@ auto Fw::getUSBDeviceTypeName(Fw::USBDeviceType type) -> std::string {
     return "Error";
 }
 
-auto Fw::FreeWiliDevice::getUSBDevices(Fw::USBDeviceType usbDeviceType) const noexcept -> Fw::USBDevices {
+auto Fw::FreeWiliDevice::getUSBDevices(Fw::USBDeviceType usbDeviceType) const noexcept
+    -> Fw::USBDevices {
     Fw::USBDevices foundDevices;
     std::for_each(usbDevices.begin(), usbDevices.end(), [&](const USBDevice& usb_dev) {
         if (usb_dev.kind == usbDeviceType) {
@@ -76,7 +77,8 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
             usbDevices.end(),
             [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::FTDI; }
         );
-        it == usbDevices.end()) {
+        it == usbDevices.end())
+    {
         return std::unexpected("Failed to get serial number of FreeWiliDevice. Missing FTDI chip.");
     } else {
         name = it->name;
@@ -93,7 +95,8 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
             sortedUsbDevices.end(),
             [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::Hub; }
         );
-        it == sortedUsbDevices.end()) {
+        it == sortedUsbDevices.end())
+    {
         return std::unexpected("Failed to get the hub of the FreeWiliDevice.");
     } else {
         usbHubDevice = *it;
@@ -101,14 +104,18 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
     }
 
     // Sort the USB devices
-    std::sort(sortedUsbDevices.begin(), sortedUsbDevices.end(), [](const Fw::USBDevice& lhs, const Fw::USBDevice& rhs) {
-        // Always put the hub at the bottom
-        if (rhs.kind == Fw::USBDeviceType::Hub) {
-            return false;
+    std::sort(
+        sortedUsbDevices.begin(),
+        sortedUsbDevices.end(),
+        [](const Fw::USBDevice& lhs, const Fw::USBDevice& rhs) {
+            // Always put the hub at the bottom
+            if (rhs.kind == Fw::USBDeviceType::Hub) {
+                return false;
+            }
+            // order smallest to largest
+            return lhs.location < rhs.location;
         }
-        // order smallest to largest
-        return lhs.location < rhs.location;
-    });
+    );
 
     return Fw::FreeWiliDevice {
         .name = name,

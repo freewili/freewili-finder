@@ -61,7 +61,11 @@ auto _listDisks() noexcept -> std::vector<DiskInfo> {
 
     struct udev_enumerate* enumerate = udev_enumerate_new(udev);
     udev_enumerate_add_match_subsystem(enumerate, "block"); // Only block devices
-    udev_enumerate_add_match_property(enumerate, "DEVTYPE", "disk"); // only whole disks, not partitions
+    udev_enumerate_add_match_property(
+        enumerate,
+        "DEVTYPE",
+        "disk"
+    ); // only whole disks, not partitions
     udev_enumerate_scan_devices(enumerate);
 
     struct udev_list_entry* devices = udev_enumerate_get_list_entry(enumerate);
@@ -77,7 +81,8 @@ auto _listDisks() noexcept -> std::vector<DiskInfo> {
             continue;
         }
         // Go up to the USB device
-        struct udev_device* parent = udev_device_get_parent_with_subsystem_devtype(usbDisk, "usb", "usb_device");
+        struct udev_device* parent =
+            udev_device_get_parent_with_subsystem_devtype(usbDisk, "usb", "usb_device");
         if (parent) {
             auto mountPoints = _findMountPoints(devnode);
             std::string serial = get_device_property(parent, "serial");
@@ -126,14 +131,16 @@ auto _listSerialPorts() noexcept -> std::vector<SerialInfo> {
         const char* syspath = udev_list_entry_get_name(entry);
         struct udev_device* tty = udev_device_new_from_syspath(udev, syspath);
 
-        const char* devNode = udev_device_get_devnode(tty); // Should give /dev/ttyUSBx or /dev/ttyACMx
+        const char* devNode =
+            udev_device_get_devnode(tty); // Should give /dev/ttyUSBx or /dev/ttyACMx
         if (!devNode) {
             udev_device_unref(tty);
             continue;
         }
 
         // Go up to the USB device
-        struct udev_device* parent = udev_device_get_parent_with_subsystem_devtype(tty, "usb", "usb_device");
+        struct udev_device* parent =
+            udev_device_get_parent_with_subsystem_devtype(tty, "usb", "usb_device");
         if (parent) {
             std::string serial = get_device_property(parent, "serial");
             std::string devPath = udev_device_get_syspath(parent);
@@ -156,15 +163,17 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     auto serialPorts = _listSerialPorts();
 
     // helper function to find all usb devices attached to the hub
-    auto findUsbHubChildren =
-        [&](udev* udev, udev_list_entry* dev_list_entry, udev_list_entry* devices, const USBDevice& usbHubDevice
-        ) -> USBDevices {
+    auto findUsbHubChildren = [&](udev* udev,
+                                  udev_list_entry* dev_list_entry,
+                                  udev_list_entry* devices,
+                                  const USBDevice& usbHubDevice) -> USBDevices {
         USBDevices foundUsbDevices;
         udev_list_entry_foreach(dev_list_entry, devices) {
             const char* path = udev_list_entry_get_name(dev_list_entry);
             struct udev_device* dev = udev_device_new_from_syspath(udev, path);
 
-            struct udev_device* parent = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_device");
+            struct udev_device* parent =
+                udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_device");
             if (!parent) {
                 udev_device_unref(dev);
                 continue;
@@ -210,9 +219,10 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
             auto diskPathIter = std::find_if(disks.begin(), disks.end(), [&](const DiskInfo& disk) {
                 return devPath.contains(disk.devPath);
             });
-            auto serialIter = std::find_if(serialPorts.begin(), serialPorts.end(), [&](const SerialInfo& serial) {
-                return devPath.contains(serial.devPath);
-            });
+            auto serialIter =
+                std::find_if(serialPorts.begin(), serialPorts.end(), [&](const SerialInfo& serial) {
+                    return devPath.contains(serial.devPath);
+                });
             foundUsbDevices.push_back(USBDevice {
                 .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
                 .vid = vid,
@@ -223,8 +233,9 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
                 .paths = diskPathIter == disks.end()
                     ? std::nullopt
                     : std::optional<std::vector<std::string>>(diskPathIter->mountPoints),
-                .port =
-                    serialIter == serialPorts.end() ? std::nullopt : std::optional<std::string>(serialIter->ttyName),
+                .port = serialIter == serialPorts.end()
+                    ? std::nullopt
+                    : std::optional<std::string>(serialIter->ttyName),
                 ._raw = devPath,
             });
             udev_device_unref(dev);
@@ -296,7 +307,9 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
         };
         auto usbChildren = findUsbHubChildren(udev, dev_list_entry, devices, hubDevice);
         usbChildren.push_back(hubDevice);
-        if (auto fwDeviceResult = Fw::FreeWiliDevice::fromUSBDevices(usbChildren); fwDeviceResult.has_value()) {
+        if (auto fwDeviceResult = Fw::FreeWiliDevice::fromUSBDevices(usbChildren);
+            fwDeviceResult.has_value())
+        {
             fwDevices.push_back(fwDeviceResult.value());
         } else {
             std::cerr << fwDeviceResult.error();

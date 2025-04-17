@@ -72,7 +72,8 @@ struct FreeWiliDevice {
     auto getUSBDevices(USBDeviceType usbDeviceType) const noexcept -> USBDevices;
 
     /// Helper function to create a FreeWiliDevice from USBDevices
-    static auto fromUSBDevices(const USBDevices& usbDevices) -> std::expected<FreeWiliDevice, std::string>;
+    static auto fromUSBDevices(const USBDevices& usbDevices)
+        -> std::expected<FreeWiliDevice, std::string>;
 };
 
 /// Free-Wili Devices

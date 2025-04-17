@@ -41,10 +41,13 @@ auto _toString(const char* value) noexcept -> std::string {
     return strValue;
 }
 
-auto getPropertyAsInt(io_service_t& usbDevice, CFStringRef propertyName) -> std::optional<uint32_t> {
+auto getPropertyAsInt(io_service_t& usbDevice, CFStringRef propertyName)
+    -> std::optional<uint32_t> {
     uint32_t value = 0;
-    if (auto res = (CFNumberRef)IORegistryEntryCreateCFProperty(usbDevice, propertyName, kCFAllocatorDefault, 0);
-        !res) {
+    if (auto res = (CFNumberRef
+        )IORegistryEntryCreateCFProperty(usbDevice, propertyName, kCFAllocatorDefault, 0);
+        !res)
+    {
         return std::nullopt;
     } else if (!CFNumberGetValue(res, kCFNumberSInt32Type, &value)) {
         CFRelease(res);
@@ -55,11 +58,14 @@ auto getPropertyAsInt(io_service_t& usbDevice, CFStringRef propertyName) -> std:
     return value;
 }
 
-auto getPropertyAsStr(io_service_t& usbDevice, CFStringRef propertyName) -> std::optional<std::string> {
+auto getPropertyAsStr(io_service_t& usbDevice, CFStringRef propertyName)
+    -> std::optional<std::string> {
     std::string value(1024, '\0');
     assert(value.capacity() >= 1024);
-    if (CFStringRef res = (CFStringRef)IORegistryEntryCreateCFProperty(usbDevice, propertyName, kCFAllocatorDefault, 0);
-        !res) {
+    if (CFStringRef res = (CFStringRef
+        )IORegistryEntryCreateCFProperty(usbDevice, propertyName, kCFAllocatorDefault, 0);
+        !res)
+    {
         return std::nullopt;
     } else if (!CFStringGetCString(res, &value[0], 1024, kCFStringEncodingUTF8)) {
         CFRelease(res);
@@ -71,7 +77,8 @@ auto getPropertyAsStr(io_service_t& usbDevice, CFStringRef propertyName) -> std:
     return value;
 }
 
-auto findSerialPort(io_object_t entry, int level) noexcept -> std::expected<std::string, std::string> {
+auto findSerialPort(io_object_t entry, int level) noexcept
+    -> std::expected<std::string, std::string> {
     io_iterator_t children;
     if (IORegistryEntryGetChildIterator(entry, kIOServicePlane, &children) != KERN_SUCCESS) {
         return std::unexpected("IORegistryEntryGetChildIterator() failed");
@@ -96,8 +103,12 @@ auto findSerialPort(io_object_t entry, int level) noexcept -> std::expected<std:
             IOObjectRelease(child);
             continue;
         }
-        CFTypeRef calloutPath =
-            IORegistryEntryCreateCFProperty(child, CFSTR("IOCalloutDevice"), kCFAllocatorDefault, 0);
+        CFTypeRef calloutPath = IORegistryEntryCreateCFProperty(
+            child,
+            CFSTR("IOCalloutDevice"),
+            kCFAllocatorDefault,
+            0
+        );
         if (calloutPath && CFGetTypeID(calloutPath) == CFStringGetTypeID()) {
             char path[256] {};
             CFStringGetCString((CFStringRef)calloutPath, path, sizeof(path), kCFStringEncodingUTF8);
@@ -118,7 +129,8 @@ auto findSerialPort(io_object_t entry, int level) noexcept -> std::expected<std:
     }
 }
 
-auto findStoragePah(io_object_t entry, int level) noexcept -> std::expected<std::string, std::string> {
+auto findStoragePah(io_object_t entry, int level) noexcept
+    -> std::expected<std::string, std::string> {
     io_iterator_t children;
     if (IORegistryEntryGetChildIterator(entry, kIOServicePlane, &children) != KERN_SUCCESS) {
         return std::unexpected("IORegistryEntryGetChildIterator() failed");
@@ -143,9 +155,13 @@ auto findStoragePah(io_object_t entry, int level) noexcept -> std::expected<std:
             IOObjectRelease(child);
             continue;
         }
-        CFTypeRef whole = IORegistryEntryCreateCFProperty(child, CFSTR("Whole"), kCFAllocatorDefault, 0);
-        if (whole && CFGetTypeID(whole) == CFBooleanGetTypeID() && CFBooleanGetValue((CFBooleanRef)whole)) {
-            CFTypeRef bsdName = IORegistryEntryCreateCFProperty(child, CFSTR("BSD Name"), kCFAllocatorDefault, 0);
+        CFTypeRef whole =
+            IORegistryEntryCreateCFProperty(child, CFSTR("Whole"), kCFAllocatorDefault, 0);
+        if (whole && CFGetTypeID(whole) == CFBooleanGetTypeID()
+            && CFBooleanGetValue((CFBooleanRef)whole))
+        {
+            CFTypeRef bsdName =
+                IORegistryEntryCreateCFProperty(child, CFSTR("BSD Name"), kCFAllocatorDefault, 0);
             if (bsdName && CFGetTypeID(bsdName) == CFStringGetTypeID()) {
                 char path[128];
                 CFStringGetCString((CFStringRef)bsdName, path, sizeof(path), kCFStringEncodingUTF8);
@@ -154,7 +170,8 @@ auto findStoragePah(io_object_t entry, int level) noexcept -> std::expected<std:
 
                 // Shell out to diskutil to get the mount point
                 std::stringstream ss;
-                ss << "diskutil info " << storagePath << "s1 | awk -F': *' '/Mount Point/ { print $2 }'";
+                ss << "diskutil info " << storagePath
+                   << "s1 | awk -F': *' '/Mount Point/ { print $2 }'";
                 FILE* fp = popen(ss.str().c_str(), "r");
                 if (fp) {
                     char mountPath[256] {};
@@ -189,7 +206,9 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
         return std::unexpected("IOServiceMatching() Failure");
     }
     io_iterator_t iter;
-    if (auto res = IOServiceGetMatchingServices(kIOMainPortDefault, matchingDict, &iter); res != KERN_SUCCESS) {
+    if (auto res = IOServiceGetMatchingServices(kIOMainPortDefault, matchingDict, &iter);
+        res != KERN_SUCCESS)
+    {
         std::stringstream ss;
         ss << "IOServiceGetMatchingServices() Failure: " << res;
         return std::unexpected(ss.str());
@@ -226,19 +245,25 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
         }
 
         std::string containerId;
-        if (auto result = getPropertyAsStr(usbDevice, CFSTR("kUSBContainerID")); result.has_value()) {
+        if (auto result = getPropertyAsStr(usbDevice, CFSTR("kUSBContainerID")); result.has_value())
+        {
             containerId = result.value();
         }
         std::string manuName;
-        if (auto result = getPropertyAsStr(usbDevice, CFSTR("USB Vendor Name")); result.has_value()) {
+        if (auto result = getPropertyAsStr(usbDevice, CFSTR("USB Vendor Name")); result.has_value())
+        {
             manuName = result.value();
         }
         std::string productName;
-        if (auto result = getPropertyAsStr(usbDevice, CFSTR("USB Product Name")); result.has_value()) {
+        if (auto result = getPropertyAsStr(usbDevice, CFSTR("USB Product Name"));
+            result.has_value())
+        {
             productName = result.value();
         }
         std::string serial;
-        if (auto result = getPropertyAsStr(usbDevice, CFSTR("USB Serial Number")); result.has_value()) {
+        if (auto result = getPropertyAsStr(usbDevice, CFSTR("USB Serial Number"));
+            result.has_value())
+        {
             serial = result.value();
         }
 
@@ -256,17 +281,16 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
 
         auto kind = Fw::getUSBDeviceTypeFrom(vid, pid);
 
-        containerDevices[containerId].push_back(USBDevice {
-            .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
-            .vid = vid,
-            .pid = pid,
-            .name = manuName + " " + productName,
-            .serial = serial,
-            .location = addr,
-            .paths = std::nullopt,
-            .port = serialPort,
-            ._raw = ""
-        });
+        containerDevices[containerId].push_back(USBDevice { .kind =
+                                                                Fw::getUSBDeviceTypeFrom(vid, pid),
+                                                            .vid = vid,
+                                                            .pid = pid,
+                                                            .name = manuName + " " + productName,
+                                                            .serial = serial,
+                                                            .location = addr,
+                                                            .paths = std::nullopt,
+                                                            .port = serialPort,
+                                                            ._raw = "" });
         if (!storagePaths.empty()) {
             containerDevices[containerId].back().paths = storagePaths;
         }
@@ -277,7 +301,7 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     IOObjectRelease(iter);
 
     Fw::FreeWiliDevices fwDevices;
-    for (auto&& devices : containerDevices) {
+    for (auto&& devices: containerDevices) {
         if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices.second); result.has_value()) {
             fwDevices.push_back(result.value());
         } else {

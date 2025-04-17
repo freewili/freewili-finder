@@ -33,16 +33,16 @@ const uint16_t USB_VID_FW_ESP32_SERIAL = 0x10C4;
 const uint16_t USB_PID_FW_ESP32_SERIAL = 0xEA60;
 
 static std::map<uint16_t, std::vector<uint16_t>> WhitelistVIDPID = {
-    {USB_VID_FW_HUB,
-     {
-         USB_PID_FW_HUB,
-     }},
-    {USB_VID_FW_FTDI,
-     {
-         USB_PID_FW_FTDI,
-     }},
-    {USB_VID_FW_RPI, {USB_PID_FW_RPI_CDC_PID, USB_PID_FW_RPI_UF2_PID}},
-    {USB_VID_FW_ICS, {USB_PID_FW_MAIN_CDC_PID, USB_PID_FW_DISPLAY_CDC_PID}},
+    { USB_VID_FW_HUB,
+      {
+          USB_PID_FW_HUB,
+      } },
+    { USB_VID_FW_FTDI,
+      {
+          USB_PID_FW_FTDI,
+      } },
+    { USB_VID_FW_RPI, { USB_PID_FW_RPI_CDC_PID, USB_PID_FW_RPI_UF2_PID } },
+    { USB_VID_FW_ICS, { USB_PID_FW_MAIN_CDC_PID, USB_PID_FW_DISPLAY_CDC_PID } },
 };
 
 auto is_vid_pid_whitelisted(uint16_t vid, uint16_t pid) -> bool;
