@@ -6,13 +6,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
+# ============================================================================
+# Options
+# ============================================================================
+option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+option(FW_BUILD_STATIC "Build static library." ON)
 option(FW_FINDER_BUILD_TESTS "Build tests" ON)
 option(FW_FINDER_ENABLE_BINDINGS_PYTHON "Build Python bindings" OFF)
 
 
+if (FW_FINDER_ENABLE_BINDINGS_PYTHON)
+    set(FW_BUILD_STATIC ON)
+    add_subdirectory(bindings)
+endif ()
 
-# Library files
+
+# ============================================================================
+# Source files
+# ============================================================================
 set(SRC_FILES
     src/fwfinder.cpp
     src/fwfinder_linux.cpp
@@ -28,7 +39,9 @@ set(TEST_SRC_FILES
     test/test_win32.cpp
 )
 
+# ============================================================================
 # Compiler and linker options
+# ============================================================================
 if(MSVC)
     set_source_files_properties(${SRC_FILES} /W4)
     set_source_files_properties(${TEST_SRC_FILES} /W4)
@@ -42,12 +55,9 @@ add_library(
     ${SRC_FILES}
 )
 
-# set_target_properties(${PROJECT_NAME} PROPERTIES
-#                         POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}
-#                         )
-
-add_subdirectory(bindings)
-
+# ============================================================================
+# Project configuration - Includes, Libraries, defines
+# ============================================================================
 target_include_directories(
     ${PROJECT_NAME}
     PUBLIC
@@ -69,6 +79,33 @@ elseif(APPLE)
 endif ()
 target_link_libraries(${PROJECT_NAME} PRIVATE ${LIB_LIST})
 
+# ============================================================================
+# Build static library if enabled, we use this for python bindings
+# ============================================================================
+if (FW_BUILD_STATIC)
+    add_library(
+        ${PROJECT_NAME}-static
+        STATIC
+        ${SRC_FILES}
+    )
+
+    set_target_properties(${PROJECT_NAME}-static PROPERTIES
+                            POSITION_INDEPENDENT_CODE ON
+                            )
+
+    target_include_directories(
+    ${PROJECT_NAME}-static
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(${PROJECT_NAME}-static PRIVATE ${LIB_LIST})
+endif ()
+
+# ============================================================================
+# Testing ====================================================================
+# ============================================================================
 if (FW_FINDER_BUILD_TESTS)
     message(STATUS "Enabling tests...")
     # Include GoogleTest

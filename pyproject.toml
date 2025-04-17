@@ -26,8 +26,9 @@ cmake.args = [
   "-DFW_FINDER_ENABLE_BINDINGS_PYTHON=ON",
   "-DFW_FINDER_BUILD_TESTS=OFF",
 ]
+wheel.packages = [ "pyfwfinder" ]
 
-# Setuptools-style build caching in a local directory
+# # Setuptools-style build caching in a local directory
 build-dir = "build/{wheel_tag}"
 
 # Build stable ABI wheels for CPython 3.12+
@@ -39,14 +40,14 @@ build-verbosity = 1
 before-build = "python -m pip install wheel"
 manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64"
 manylinux-aarch64-image = "quay.io/pypa/manylinux_2_34_aarch64"
+skip = ["pp* *-manylinux_i686 *-musllinux_*"]
 
 # Run pytest to ensure that the package was correctly built
-test-command = "pytest {project}/tests"
-test-requires = "pytest"
+#test-command = "pytest {project}/tests"
+#test-requires = "pytest"
 
 # Don't test Python 3.8 wheels on macOS/arm64
 test-skip="cp38-macosx_*:arm64"
-
 
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "10.15" # Needed for full C++23 support

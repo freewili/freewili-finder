@@ -5,7 +5,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 message(STATUS "Building python bindings...")
 
-find_package(Python COMPONENTS Interpreter Development)
+# find_package(Python COMPONENTS Interpreter Development)
+find_package(Python
+  REQUIRED COMPONENTS Interpreter Development.Module
+  OPTIONAL_COMPONENTS Development.SABIModule)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -21,7 +24,7 @@ nanobind_add_module(
     src/pyfwfinder.cpp
 )
 
-target_link_libraries(pyfwfinder PUBLIC fwfinder)
+target_link_libraries(pyfwfinder PRIVATE fwfinder-static)
 
 # Add the following lines below. They configure CMake to perform an optimized release build by default
 # unless another build type is specified. Without this addition, binding code may run slowly and
@@ -30,3 +33,6 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
+
+install(TARGETS pyfwfinder DESTINATION pyfwfinder)
+install(FILES __init__.py DESTINATION pyfwfinder)
