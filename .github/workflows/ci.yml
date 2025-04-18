@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-24.04, windows-2022, macOS-15]
 
     steps:
     - uses: actions/checkout@v4
@@ -22,6 +22,26 @@ jobs:
       uses: astral-sh/setup-uv@v5
       with:
         enable-cache: true
+
+    - name: Install Clang Linux
+      if: runner.os == 'Linux'
+      run: |
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+        sudo apt update
+        sudo apt -y remove clang-18 llvm-18 llvm-18-dev llvm-18-linker-tools llvm-18-runtime clang-format-18
+        sudo apt -y install clang-19 lldb-19 lld-19 clang-format-19 libudev-dev
+        sudo ln -sf `which clang-19` /usr/bin/clang
+        sudo ln -sf `which clang++-19` /usr/bin/clang++
+
+    - name: Install Clang Windows
+      if: runner.os == 'Windows'
+      run: |
+        choco install llvm --version=19.1.7
+
+    - name: Install Clang macOS
+      if: runner.os == 'macOS'
+      run: |
+        brew install llvm@19
 
     - name: Pre-commit run
       run: |
