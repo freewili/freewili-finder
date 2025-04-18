@@ -43,7 +43,7 @@ jobs:
       #
       # To add more build types (Release, Debug, RelWithDebInfo, etc.) customize the build_type list.
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-24.04, windows-2022, macOS-15]
         build_type: [Release]
         c_compiler: [gcc, clang, cl]
         include:
@@ -83,15 +83,25 @@ jobs:
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
 
-    - name: Install Clang
+    - name: Install Clang Linux
       if: runner.os == 'Linux'
       run: |
         wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
         sudo apt update
-        sudo apt -y remove clang-18 llvm-18 llvm-18-dev llvm-18-linker-tools llvm-18-runtime
-        sudo apt -y install clang-19 lldb-19 lld-19 libudev-dev
+        sudo apt -y remove clang-18 llvm-18 llvm-18-dev llvm-18-linker-tools llvm-18-runtime clang-format-18
+        sudo apt -y install clang-19 lldb-19 lld-19 clang-format-19 libudev-dev
         sudo ln -sf `which clang-19` /usr/bin/clang
         sudo ln -sf `which clang++-19` /usr/bin/clang++
+
+    - name: Install Clang Windows
+      if: runner.os == 'Windows'
+      run: |
+        choco install llvm --version=19.1.7
+
+    - name: Install Clang macOS
+      if: runner.os == 'macOS'
+      run: |
+        brew install llvm@19
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.

@@ -992,33 +992,29 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     for (auto&& hub: hubs) {
         USBDevices devices;
 
-        devices.push_back(
-            Fw::USBDevice {
-                .kind = Fw::getUSBDeviceTypeFrom(hub.first->vid, hub.first->pid),
-                .vid = hub.first->vid,
-                .pid = hub.first->pid,
-                .name = hub.first->busDescription + " (" + hub.first->description + ")",
-                .serial = hub.first->serial,
-                .location = hub.first->location,
-                .paths = std::nullopt, // TODO
-                .port = "", // TODO
-                ._raw = hub.first->instanceId,
-            }
-        );
+        devices.push_back(Fw::USBDevice {
+            .kind = Fw::getUSBDeviceTypeFrom(hub.first->vid, hub.first->pid),
+            .vid = hub.first->vid,
+            .pid = hub.first->pid,
+            .name = hub.first->busDescription + " (" + hub.first->description + ")",
+            .serial = hub.first->serial,
+            .location = hub.first->location,
+            .paths = std::nullopt, // TODO
+            .port = "", // TODO
+            ._raw = hub.first->instanceId,
+        });
         for (auto&& child: hub.second) {
-            devices.push_back(
-                Fw::USBDevice {
-                    .kind = Fw::getUSBDeviceTypeFrom(child->vid, child->pid),
-                    .vid = child->vid,
-                    .pid = child->pid,
-                    .name = child->busDescription + " (" + child->description + ")",
-                    .serial = child->serial,
-                    .location = child->location,
-                    .paths = child->driveLetters, // TODO
-                    .port = child->port,
-                    ._raw = child->instanceId,
-                }
-            );
+            devices.push_back(Fw::USBDevice {
+                .kind = Fw::getUSBDeviceTypeFrom(child->vid, child->pid),
+                .vid = child->vid,
+                .pid = child->pid,
+                .name = child->busDescription + " (" + child->description + ")",
+                .serial = child->serial,
+                .location = child->location,
+                .paths = child->driveLetters, // TODO
+                .port = child->port,
+                ._raw = child->instanceId,
+            });
         }
         if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
             fwDevices.push_back(result.value());
