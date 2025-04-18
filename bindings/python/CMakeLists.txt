@@ -3,7 +3,9 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-message(STATUS "Building python bindings...")
+message(STATUS "Building pyfwfinder python bindings...")
+
+option(PYFWFINDER_STUB_GEN_ENABLE "Enable python stub generation" ON)
 
 # find_package(Python COMPONENTS Interpreter Development)
 find_package(Python
@@ -24,18 +26,6 @@ nanobind_add_module(
     src/pyfwfinder.cpp
 )
 
-set(PYFWFINDER_STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/pyfwfinder.pyi")
-
-nanobind_add_stub(
-    pyfwfinder_stub
-    INSTALL_TIME
-    MODULE pyfwfinder
-    OUTPUT "${PYFWFINDER_STUB_FILE}"
-    PYTHON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/pyfwfinder"
-    DEPENDS pyfwfinder
-    MARKER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/pyfwfinder/py.typed"
-)
-
 target_link_libraries(pyfwfinder PRIVATE fwfinder-static)
 
 # Add the following lines below. They configure CMake to perform an optimized release build by default
@@ -47,5 +37,26 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 install(TARGETS pyfwfinder DESTINATION pyfwfinder)
-install(FILES src/pyfwfinder/__init__.py DESTINATION pyfwfinder)
-install(FILES src/pyfwfinder/py.typed "${PYFWFINDER_STUB_FILE}" DESTINATION pyfwfinder)
+
+# ============================================================================
+# Stub Generation
+# ============================================================================
+if (PYFWFINDER_STUB_GEN_ENABLE)
+    message(STATUS "Building pyfwfinder python stubs...")
+
+    set(PYFWFINDER_STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/pyfwfinder.pyi")
+
+    nanobind_add_stub(
+        pyfwfinder_stub
+        MODULE pyfwfinder
+        OUTPUT "${PYFWFINDER_STUB_FILE}"
+        PYTHON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/pyfwfinder"
+        DEPENDS pyfwfinder
+        INSTALL_TIME
+        MARKER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/pyfwfinder/py.typed"
+    )
+
+
+    install(FILES src/pyfwfinder/__init__.py DESTINATION pyfwfinder)
+    install(FILES src/pyfwfinder/py.typed "${PYFWFINDER_STUB_FILE}" DESTINATION pyfwfinder)
+endif ()
