@@ -24,6 +24,18 @@ nanobind_add_module(
     src/pyfwfinder.cpp
 )
 
+set(PYFWFINDER_STUB_FILE "${CMAKE_CURRENT_BINARY_DIR}/pyfwfinder.pyi")
+
+nanobind_add_stub(
+    pyfwfinder_stub
+    INSTALL_TIME
+    MODULE pyfwfinder
+    OUTPUT "${PYFWFINDER_STUB_FILE}"
+    PYTHON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/pyfwfinder"
+    DEPENDS pyfwfinder
+    MARKER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/pyfwfinder/py.typed"
+)
+
 target_link_libraries(pyfwfinder PRIVATE fwfinder-static)
 
 # Add the following lines below. They configure CMake to perform an optimized release build by default
@@ -36,3 +48,4 @@ endif()
 
 install(TARGETS pyfwfinder DESTINATION pyfwfinder)
 install(FILES src/pyfwfinder/__init__.py DESTINATION pyfwfinder)
+install(FILES src/pyfwfinder/py.typed "${PYFWFINDER_STUB_FILE}" DESTINATION pyfwfinder)
