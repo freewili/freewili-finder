@@ -61,7 +61,7 @@ before-build = [
   "dnf install -y cmake clang systemd-devel",
   "pip install typing-extensions",
 ]
-archs = ["x86_64", "aarch64"]
+archs = ["x86_64"] #, "aarch64"]
 
 [tool.cibuildwheel.windows]
 before-build = ["choco install llvm --version=19.1.7", "pip install delvewheel"]
