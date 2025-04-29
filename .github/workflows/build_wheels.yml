@@ -1,6 +1,14 @@
 name: Wheels Build
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write  # Needed for secure publishing to PyPI with trusted publishers
 
 jobs:
   build_wheels:
@@ -34,7 +42,7 @@ jobs:
     - uses: actions/download-artifact@v4
       with:
         path: dist
-        pattern: dist-*
+        pattern: cibw-wheels-*
         merge-multiple: true
 
     - uses: pypa/gh-action-pypi-publish@release/v1

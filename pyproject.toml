@@ -8,7 +8,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyfwfinder"
-version = "0.0.1"
+version = "0.0.2"
 description = "An example minimal project that compiles bindings using nanobind and scikit-build"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -66,4 +66,4 @@ archs = ["x86_64"] #, "aarch64"]
 [tool.cibuildwheel.windows]
 before-build = ["choco install llvm --version=19.1.7", "pip install delvewheel"]
 # repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
-archs = ["AMD64", "ARM64"]
+archs = ["AMD64"] #, "ARM64"]
