@@ -37,6 +37,12 @@ NB_MODULE(pyfwfinder, m) {
 
     nb::class_<Fw::USBDevice>(m, "USBDevice")
         .def(nb::init<>())
+        .def(
+            "__str__",
+            [](const Fw::USBDevice& self) {
+                return Fw::getUSBDeviceTypeName(self.kind) + " " + self.name + " " + self.serial;
+            }
+        )
         .def_ro("kind", &Fw::USBDevice::kind)
         .def_ro("vid", &Fw::USBDevice::vid)
         .def_ro("pid", &Fw::USBDevice::pid)
@@ -49,6 +55,10 @@ NB_MODULE(pyfwfinder, m) {
 
     nb::class_<Fw::FreeWiliDevice>(m, "FreeWiliDevice")
         .def(nb::init<>())
+        .def(
+            "__str__",
+            [](const Fw::FreeWiliDevice& self) { return self.name + " " + self.serial; }
+        )
         .def_ro("name", &Fw::FreeWiliDevice::name)
         .def_ro("serial", &Fw::FreeWiliDevice::serial)
         .def_ro("usb_hub", &Fw::FreeWiliDevice::usbHub)

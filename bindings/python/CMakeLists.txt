@@ -50,7 +50,7 @@ if (PYFWFINDER_STUB_GEN_ENABLE)
         pyfwfinder_stub
         MODULE pyfwfinder
         OUTPUT "${PYFWFINDER_STUB_FILE}"
-        PYTHON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src/pyfwfinder"
+        PYTHON_PATH $<TARGET_FILE_DIR:pyfwfinder>
         DEPENDS pyfwfinder
         INSTALL_TIME
         MARKER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/pyfwfinder/py.typed"
