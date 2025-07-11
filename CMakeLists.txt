@@ -10,14 +10,17 @@ include(FetchContent)
 # Options
 # ============================================================================
 option(FW_BUILD_STATIC "Build static library." ON)
+option(FW_BUILD_C_API "Build C API." ON)
 option(FW_FINDER_BUILD_TESTS "Build tests" ON)
 option(FW_FINDER_ENABLE_BINDINGS_PYTHON "Build Python bindings" OFF)
+option(FW_BUILD_EXAMPLES "Build examples" ON)
 
 
 if (FW_FINDER_ENABLE_BINDINGS_PYTHON)
     set(FW_BUILD_STATIC ON)
     add_subdirectory(bindings)
 endif ()
+
 
 
 # ============================================================================
@@ -104,6 +107,20 @@ if (FW_BUILD_STATIC)
 endif ()
 
 # ============================================================================
+# Build C API
+# ============================================================================
+
+if (FW_BUILD_C_API)
+    add_subdirectory(c_api)
+endif ()
+
+# ============================================================================
+# Examples
+# ============================================================================
+if (FW_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif ()
+
 # Testing ====================================================================
 # ============================================================================
 if (FW_FINDER_BUILD_TESTS AND FW_BUILD_STATIC)
@@ -135,7 +152,7 @@ endif ()
 
     target_link_libraries(
         "${PROJECT_NAME}_test"
-        GTest::gtest_main ${LIB_LIST} ${PROJECT_NAME}-static
+        GTest::gtest_main ${LIB_LIST} ${PROJECT_NAME}-static ${C_API_STATIC_PROJECT_NAME}
     )
 
     target_include_directories(

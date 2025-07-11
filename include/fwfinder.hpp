@@ -2,7 +2,7 @@
 
 #include <string>
 #include <expected>
-#include <memory>
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -74,6 +74,10 @@ struct FreeWiliDevice {
     /// Helper function to create a FreeWiliDevice from USBDevices
     static auto fromUSBDevices(const USBDevices& usbDevices)
         -> std::expected<FreeWiliDevice, std::string>;
+
+    bool operator==(const FreeWiliDevice& other) const noexcept {
+        return name == other.name && serial == other.serial;
+    }
 };
 
 /// Free-Wili Devices

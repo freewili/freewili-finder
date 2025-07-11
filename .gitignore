@@ -36,5 +36,6 @@ Testing/
 latex/
 html/
 wheelhouse/
+.cache/
 *.pyc
 *.whl

@@ -25,6 +25,8 @@ minimum-version = "build-system.requires"
 cmake.args = [
   "-DFW_FINDER_ENABLE_BINDINGS_PYTHON=ON",
   "-DFW_FINDER_BUILD_TESTS=OFF",
+  "-DFW_BUILD_C_API=OFF",
+  "-DFW_BUILD_EXAMPLES=OFF",
 ]
 wheel.packages = ["pyfwfinder"]
 
@@ -64,6 +66,6 @@ before-build = [
 archs = ["x86_64"] #, "aarch64"]
 
 [tool.cibuildwheel.windows]
-before-build = ["choco install llvm --version=19.1.7", "pip install delvewheel"]
+before-build = ["choco install llvm --version=19.1.7 --allow-downgrade", "pip install delvewheel"]
 # repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
 archs = ["AMD64"] #, "ARM64"]

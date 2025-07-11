@@ -36,7 +36,7 @@ jobs:
     - name: Install Clang Windows
       if: runner.os == 'Windows'
       run: |
-        choco install llvm --version=19.1.7
+        choco install llvm --version=19.1.7 --allow-downgrade
 
     - name: Install Clang macOS
       if: runner.os == 'macOS'
@@ -116,7 +116,7 @@ jobs:
     - name: Install Clang Windows
       if: runner.os == 'Windows'
       run: |
-        choco install llvm --version=19.1.7
+        choco install llvm --version=19.1.7 --allow-downgrade
 
     - name: Install Clang macOS
       if: runner.os == 'macOS'
