@@ -23,22 +23,14 @@ target_include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
-# Link against the main fwfinder library
-target_link_libraries(${C_API_PROJECT_NAME} PRIVATE ${PROJECT_NAME})
+# Link against the main fwfinder static library for better symbol resolution
+target_link_libraries(${C_API_PROJECT_NAME} PRIVATE ${PROJECT_NAME}-static)
 
 set_target_properties(${C_API_PROJECT_NAME} PROPERTIES
     OUTPUT_NAME ${C_API_PROJECT_NAME}
 )
 
 target_compile_definitions(${C_API_PROJECT_NAME} PRIVATE CFW_FINDER_BUILD_DYNAMIC)
-target_compile_definitions(${C_API_PROJECT_NAME}
-    PRIVATE
-        CFW_FINDER_EXPORTS
-    PUBLIC
-        CFW_FINDER_EXPORTS
-    INTERFACE
-        CFW_FINDER_EXPORTS
-)
 
 # Static C API library (if enabled)
 if (FW_BUILD_STATIC)
@@ -95,6 +87,9 @@ if (FW_FINDER_BUILD_TESTS AND FW_BUILD_STATIC)
         GTest::gtest_main
         ${C_API_STATIC_PROJECT_NAME}
     )
+    
+    # Define CFW_FINDER_BUILD_STATIC for the test so it uses static linkage
+    target_compile_definitions("${C_API_PROJECT_NAME}_test" PRIVATE CFW_FINDER_BUILD_STATIC)
 
     # Register the test with CTest using add_test
     add_test(

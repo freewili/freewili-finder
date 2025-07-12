@@ -17,7 +17,7 @@ target_include_directories(
 target_link_libraries(
     basic_usage_cpp
     PRIVATE
-        ${PROJECT_NAME}
+        ${PROJECT_NAME}-static
 )
 
 # C Example using the C API
