@@ -34,10 +34,6 @@ target_compile_definitions(${C_API_PROJECT_NAME} PRIVATE CFW_FINDER_BUILD_DYNAMI
 target_compile_definitions(${C_API_PROJECT_NAME}
     PRIVATE
         CFW_FINDER_EXPORTS
-    PUBLIC
-        CFW_FINDER_IMPORTS
-    INTERFACE
-        CFW_FINDER_IMPORTS
 )
 
 # Static C API library (if enabled)
@@ -94,6 +90,13 @@ if (FW_FINDER_BUILD_TESTS AND FW_BUILD_STATIC)
         "${C_API_PROJECT_NAME}_test"
         GTest::gtest_main
         ${C_API_STATIC_PROJECT_NAME}
+    )
+
+    # Define that we're using static linking for the test
+    target_compile_definitions(
+        "${C_API_PROJECT_NAME}_test"
+        PRIVATE
+            CFW_FINDER_BUILD_STATIC
     )
 
     # Register the test with CTest using add_test
