@@ -158,7 +158,6 @@ struct USBDevice {
 
 struct FreeWiliDevice {
     std::string name, serial;
-    USBDevice usbHub;
     std::vector<USBDevice> usbDevices;
 
     auto getUSBDevices(USBDeviceType type) const -> std::vector<USBDevice>;

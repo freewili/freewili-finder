@@ -22,7 +22,12 @@ TEST(FwFinder, getUSBDeviceTypeFrom) {
     );
 
     ASSERT_EQ(
-        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_UF2_PID),
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2040_UF2_PID),
+        Fw::USBDeviceType::MassStorage
+    );
+
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2350_UF2_PID),
         Fw::USBDeviceType::MassStorage
     );
 

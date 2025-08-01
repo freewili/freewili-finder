@@ -29,11 +29,26 @@ def test_usbdevice() -> None:
     assert hasattr(pyfwfinder.USBDevice, "port")
     assert hasattr(pyfwfinder.USBDevice, "_raw")
 
+def test_devicetype() -> None:
+    assert hasattr(pyfwfinder, "DeviceType")
+    assert hasattr(pyfwfinder.DeviceType, "FreeWili")
+    assert hasattr(pyfwfinder.DeviceType, "DefCon2024Badge")
+    assert hasattr(pyfwfinder.DeviceType, "DefCon2025FwBadge")
+    assert hasattr(pyfwfinder.DeviceType, "Winky")
+    assert hasattr(pyfwfinder.DeviceType, "UF2")
+
+    assert pyfwfinder.DeviceType.Unknown.value == 0
+    assert pyfwfinder.DeviceType.FreeWili.value == 1
+    assert pyfwfinder.DeviceType.DefCon2024Badge.value == 2
+    assert pyfwfinder.DeviceType.DefCon2025FwBadge.value == 3
+    assert pyfwfinder.DeviceType.UF2.value == 4
+    assert pyfwfinder.DeviceType.Winky.value == 5
+
 def test_freewilidevice() -> None:
     assert hasattr(pyfwfinder, "FreeWiliDevice")
     assert hasattr(pyfwfinder.FreeWiliDevice, "name")
     assert hasattr(pyfwfinder.FreeWiliDevice, "serial")
-    assert hasattr(pyfwfinder.FreeWiliDevice, "usb_hub")
+    assert hasattr(pyfwfinder.FreeWiliDevice, "device_type")
     assert hasattr(pyfwfinder.FreeWiliDevice, "usb_devices")
     assert hasattr(pyfwfinder.FreeWiliDevice, "get_usb_devices")
 

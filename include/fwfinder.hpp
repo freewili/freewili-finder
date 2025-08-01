@@ -78,7 +78,6 @@ struct FreeWiliDevice {
     std::string name;
     std::string serial;
 
-    USBDevice usbHub;
     USBDevices usbDevices;
 
     auto getUSBDevices(USBDeviceType usbDeviceType) const noexcept -> USBDevices;
