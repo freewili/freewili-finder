@@ -139,18 +139,18 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
             deviceType = Fw::DeviceType::FreeWili; // Default to FreeWili if not standalone
         }
 
-        // Lets seperate the USB Hub
-        if (auto it = std::find_if(
-                sortedUsbDevices.begin(),
-                sortedUsbDevices.end(),
-                [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::Hub; }
-            );
-            it == sortedUsbDevices.end())
-        {
-            return std::unexpected("Failed to get the hub of the FreeWiliDevice.");
-        } else {
-            sortedUsbDevices.erase(it);
-        }
+        // // Lets seperate the USB Hub
+        // if (auto it = std::find_if(
+        //         sortedUsbDevices.begin(),
+        //         sortedUsbDevices.end(),
+        //         [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::Hub; }
+        //     );
+        //     it == sortedUsbDevices.end())
+        // {
+        //     return std::unexpected("Failed to get the hub of the FreeWiliDevice.");
+        // } else {
+        //     sortedUsbDevices.erase(it);
+        // }
 
         // Sort the USB devices
         std::sort(

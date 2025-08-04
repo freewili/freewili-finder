@@ -36,6 +36,7 @@ set(SRC_FILES
 
 # Unit test files
 set(TEST_SRC_FILES
+    test/test_hardware.cpp
     test/test_fwfinder.cpp
     test/test_usbdef.cpp
     test/test_win32.cpp
