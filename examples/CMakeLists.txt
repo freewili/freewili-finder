@@ -24,7 +24,7 @@ target_link_libraries(
 if (FW_BUILD_C_API)
     add_executable(
         basic_usage_c
-        c_api_basic_usage.cpp
+        c_api_basic_usage.c
     )
 
     target_include_directories(

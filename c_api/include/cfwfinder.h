@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,6 +71,18 @@ typedef enum _fw_usbdevicetype_t {
 } _fw_usbdevicetype_t;
 // Define the type for USB device type
 typedef uint32_t fw_usbdevicetype_t;
+
+/// Type of USB Device
+typedef enum _fw_devicetype_t {
+    fw_devicetype_unknown,
+    fw_devicetype_freewili,
+    fw_devicetype_defcon2024badge,
+    fw_devicetype_defcon2025fwbadge,
+    fw_devicetype_uf2,
+    fw_devicetype_winky,
+} _fw_devicetype_t;
+// Define the type for USB device type
+typedef uint32_t fw_devicetype_t;
 
 typedef enum _fw_stringtype_t {
     fw_stringtype_name,
@@ -178,6 +191,19 @@ CFW_FINDER_API fw_error_t fw_device_get_str(
     char* const value,
     uint32_t value_size
 );
+
+/**
+ * @brief Retrieves the device type.
+ *
+ * This function retrieves the type of the specified FreeWiLi device.
+ *
+ * @param device   Pointer to the fw_freewili_device_t from which to retrieve the device type.
+ * @param device_type Pointer to a fw_devicetype_t where the device type will be stored.
+ *
+ * @return fw_error_success if the operation was successful, fw_error_invalid_argument if the device or device_type is NULL.
+ */
+CFW_FINDER_API fw_error_t
+fw_device_get_type(fw_freewili_device_t* device, fw_devicetype_t* device_type);
 
 /**
     * @brief Begins the USB device enumeration for a FreeWiLi device.

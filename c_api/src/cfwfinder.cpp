@@ -129,14 +129,28 @@ CFW_FINDER_API fw_error_t fw_device_get_str(
         case fw_stringtype_serial:
             return copy_value(device->device.serial);
             break;
+        case fw_stringtype_type:
+            return copy_value(getDeviceTypeName(device->device.deviceType));
         case fw_stringtype_path:
         case fw_stringtype_port:
         case fw_stringtype_raw:
-        case fw_stringtype_type:
             return fw_error_invalid_parameter;
             break;
     }
     return fw_error_internal_error; // Should not reach here
+}
+
+CFW_FINDER_API fw_error_t
+fw_device_get_type(fw_freewili_device_t* device, fw_devicetype_t* device_type) {
+    if (device == nullptr || device_type == nullptr) {
+        return fw_error_invalid_parameter;
+    }
+
+    if (!fw_device_is_valid(device)) {
+        return fw_error_invalid_device;
+    }
+    *device_type = static_cast<fw_devicetype_t>(device->device.deviceType);
+    return fw_error_success;
 }
 
 CFW_FINDER_API fw_error_t fw_usb_device_begin(fw_freewili_device_t* device) {

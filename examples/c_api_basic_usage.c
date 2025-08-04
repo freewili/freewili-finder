@@ -39,8 +39,9 @@ int main(void) {
             continue;
         }
 
-        char name[64] = { 0 };
-        char serial[64] = { 0 };
+        char name[128] = { 0 };
+        char serial[128] = { 0 };
+        char type[128] = { 0 };
 
         // Get device name and serial
         err = fw_device_get_str(devices[i], fw_stringtype_name, name, sizeof(name));
@@ -55,8 +56,15 @@ int main(void) {
             continue;
         }
 
+        err = fw_device_get_str(devices[i], fw_stringtype_type, type, sizeof(type));
+        if (err != fw_error_success) {
+            printf("Device %u: Failed to get device type\n", i + 1);
+            continue;
+        }
+
         printf("Device %u: %s\n", i + 1, name);
         printf("  Serial: %s\n", serial);
+        printf("  Type: %s\n", type);
 
         // Begin USB device enumeration
         err = fw_usb_device_begin(devices[i]);
@@ -78,8 +86,8 @@ int main(void) {
 
         // Enumerate USB devices
         for (uint32_t j = 0; j < usb_count; ++j) {
-            char usb_name[64] = { 0 };
-            char usb_serial[64] = { 0 };
+            char usb_name[128] = { 0 };
+            char usb_serial[128] = { 0 };
             uint32_t vid = 0, pid = 0, location = 0;
 
             // Get USB device strings
@@ -124,7 +132,7 @@ int main(void) {
             printf("      VID: 0x%04X, PID: 0x%04X, Location: %u\n", vid, pid, location);
 
             // Try to get port information (for serial devices)
-            char port[64] = { 0 };
+            char port[128] = { 0 };
             if (fw_usb_device_get_str(devices[i], fw_stringtype_port, port, sizeof(port))
                 == fw_error_success)
             {
