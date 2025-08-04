@@ -1091,7 +1091,7 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
             fwDevices.push_back(result.value());
         } else {
             return std::unexpected(result.error());
-            // TOOD
+            // TODO
         }
     }
     // Sort the devices by serial number
