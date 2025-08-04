@@ -59,6 +59,23 @@ auto Fw::getUSBDeviceTypeName(Fw::USBDeviceType type) -> std::string {
     return "Error";
 }
 
+auto Fw::getDeviceTypeName(Fw::DeviceType type) -> std::string {
+    switch (type) {
+        case Fw::DeviceType::FreeWili:
+            return "FreeWili";
+        case Fw::DeviceType::DefCon2024Badge:
+            return "DefCon2024Badge";
+        case Fw::DeviceType::DefCon2025FwBadge:
+            return "DefCon2025FwBadge";
+        case Fw::DeviceType::UF2:
+            return "UF2";
+        case Fw::DeviceType::Winky:
+            return "Winky";
+        default:
+            return "Unknown";
+    }
+}
+
 auto Fw::FreeWiliDevice::getUSBDevices(Fw::USBDeviceType usbDeviceType) const noexcept
     -> Fw::USBDevices {
     Fw::USBDevices foundDevices;

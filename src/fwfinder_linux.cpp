@@ -198,7 +198,7 @@ auto _find_all_standalone(
     std::stringstream ss;
     ss << std::setfill('0') << std::setw(4) << std::hex << USB_VID_FW_HUB;
     const std::string targetHubVid = ss.str();
-    ss.clear();
+    ss = {};
     ss << std::setfill('0') << std::setw(4) << std::hex << USB_PID_FW_HUB;
     const std::string targetHubPid = ss.str();
 
@@ -385,7 +385,7 @@ auto _find_all_freewili(
     std::stringstream ss;
     ss << std::setfill('0') << std::setw(4) << std::hex << USB_VID_FW_HUB;
     const std::string targetHubVid = ss.str();
-    ss.clear();
+    ss = {};
     ss << std::setfill('0') << std::setw(4) << std::hex << USB_PID_FW_HUB;
     const std::string targetHubPid = ss.str();
 

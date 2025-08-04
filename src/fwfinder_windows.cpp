@@ -197,7 +197,7 @@ auto getUSBInstanceID(std::string value) -> std::expected<USBInstanceID, std::st
         // VID
         ss << std::hex << vid_hex_match[0].str();
         ss >> vid;
-        ss.clear();
+        ss = {};
         // PID
         ss << std::hex << pid_hex_match[0].str();
         ss >> pid;

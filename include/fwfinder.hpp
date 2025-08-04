@@ -43,6 +43,7 @@ enum class USBDeviceType : uint32_t {
 bool isStandAloneDevice(uint16_t vid, uint16_t pid);
 auto getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid) -> USBDeviceType;
 auto getUSBDeviceTypeName(USBDeviceType type) -> std::string;
+auto getDeviceTypeName(DeviceType type) -> std::string;
 
 /// Common USB device information
 struct USBDevice {

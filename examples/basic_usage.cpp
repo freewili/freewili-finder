@@ -29,6 +29,7 @@ int main() {
             const auto& device = devices[i];
 
             std::cout << "Device " << (i + 1) << ": " << device.name << std::endl;
+            std::cout << "  Type: " << Fw::getDeviceTypeName(device.deviceType) << std::endl;
             std::cout << "  Serial: " << device.serial << std::endl;
             std::cout << "  Total USB Devices: " << device.usbDevices.size() << std::endl;
 
@@ -52,7 +53,8 @@ int main() {
                 std::cout << "    MainCPU Serial Ports:" << std::endl;
                 for (const auto& mainCpu: mainCpuDevices) {
                     std::cout << "      - " << mainCpu.name << " (Serial: " << mainCpu.serial << ")"
-                              << " Port: " << (mainCpu.port.has_value() ? mainCpu.port.value() : "No port")
+                              << " Port: "
+                              << (mainCpu.port.has_value() ? mainCpu.port.value() : "No port")
                               << std::endl;
                 }
             }
@@ -63,9 +65,9 @@ int main() {
                 std::cout << "    DisplayCPU Serial Ports:" << std::endl;
                 for (const auto& displayCpu: displayCpuDevices) {
                     std::cout << "      - " << displayCpu.name << " (Serial: " << displayCpu.serial
-                              << ")" << std::endl;
-                    std::cout << "      - " << displayCpu.name << " (Serial: " << displayCpu.serial << ")"
-                              << " Port: " << (displayCpu.port.has_value() ? displayCpu.port.value() : "No port")
+                              << ")"
+                              << " Port: "
+                              << (displayCpu.port.has_value() ? displayCpu.port.value() : "No port")
                               << std::endl;
                 }
             }
