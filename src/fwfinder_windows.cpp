@@ -197,7 +197,7 @@ auto getUSBInstanceID(std::string value) -> std::expected<USBInstanceID, std::st
         // VID
         ss << std::hex << vid_hex_match[0].str();
         ss >> vid;
-        ss.clear();
+        ss = {};
         // PID
         ss << std::hex << pid_hex_match[0].str();
         ss >> pid;
@@ -541,7 +541,6 @@ auto findSerialPort(
     HDEVINFO allDeviceInfo,
     std::shared_ptr<EnumeratedDevice> device,
     const EnumeratedDevices& devicesByInstanceId,
-    uint32_t index,
     uint32_t level
 ) noexcept -> std::expected<std::optional<std::string>, std::string> {
     assert(level <= 1024);
@@ -556,7 +555,6 @@ auto findSerialPort(
                         allDeviceInfo,
                         childIter->second,
                         devicesByInstanceId,
-                        index,
                         level + 1
                     );
                     result.has_value())
@@ -915,13 +913,8 @@ auto getHubEnumeratedDevices(
                         );
                     }
                     //enumeratedDevice->driverKey = name;
-                    if (auto serialPort = findSerialPort(
-                            allDeviceInfo,
-                            enumeratedDevice,
-                            devicesByInstanceId,
-                            i,
-                            0
-                        );
+                    if (auto serialPort =
+                            findSerialPort(allDeviceInfo, enumeratedDevice, devicesByInstanceId, 0);
                         serialPort.has_value())
                     {
                         enumeratedDevice->port = serialPort.value();
@@ -952,7 +945,8 @@ auto getHubEnumeratedDevices(
     return hubs;
 }
 
-auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
+auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
+    using namespace Fw;
     // Get all USB Devices connected to the host
     EnumeratedDevices devicesByDriverKey, devicesByInstanceId;
     HDEVINFO allDeviceInfo = nullptr;
@@ -980,41 +974,38 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
         ss << "getHubEnumeratedDevices() failed: " << result.error();
         return std::unexpected(ss.str());
     }
-    // Get all Volumes connected to the host
-    VolumesMap volumes;
-    if (auto result = getVolumes(); result.has_value()) {
-        volumes = result.value();
-    } else {
-        // TODO, do we care if this fails?
-    }
 
     FreeWiliDevices fwDevices;
     for (auto&& hub: hubs) {
         USBDevices devices;
 
-        devices.push_back(Fw::USBDevice {
-            .kind = Fw::getUSBDeviceTypeFrom(hub.first->vid, hub.first->pid),
-            .vid = hub.first->vid,
-            .pid = hub.first->pid,
-            .name = hub.first->busDescription + " (" + hub.first->description + ")",
-            .serial = hub.first->serial,
-            .location = hub.first->location,
-            .paths = std::nullopt, // TODO
-            .port = "", // TODO
-            ._raw = hub.first->instanceId,
-        });
+        devices.push_back(
+            Fw::USBDevice {
+                .kind = Fw::getUSBDeviceTypeFrom(hub.first->vid, hub.first->pid),
+                .vid = hub.first->vid,
+                .pid = hub.first->pid,
+                .name = hub.first->busDescription + " (" + hub.first->description + ")",
+                .serial = hub.first->serial,
+                .location = hub.first->location,
+                .paths = std::nullopt, // TODO
+                .port = "", // TODO
+                ._raw = hub.first->instanceId,
+            }
+        );
         for (auto&& child: hub.second) {
-            devices.push_back(Fw::USBDevice {
-                .kind = Fw::getUSBDeviceTypeFrom(child->vid, child->pid),
-                .vid = child->vid,
-                .pid = child->pid,
-                .name = child->busDescription + " (" + child->description + ")",
-                .serial = child->serial,
-                .location = child->location,
-                .paths = child->driveLetters, // TODO
-                .port = child->port,
-                ._raw = child->instanceId,
-            });
+            devices.push_back(
+                Fw::USBDevice {
+                    .kind = Fw::getUSBDeviceTypeFrom(child->vid, child->pid),
+                    .vid = child->vid,
+                    .pid = child->pid,
+                    .name = child->busDescription + " (" + child->description + ")",
+                    .serial = child->serial,
+                    .location = child->location,
+                    .paths = child->driveLetters, // TODO
+                    .port = child->port,
+                    ._raw = child->instanceId,
+                }
+            );
         }
         if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
             fwDevices.push_back(result.value());
@@ -1034,6 +1025,98 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     );
 
     return fwDevices;
+}
+
+auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
+    using namespace Fw;
+    // Get all USB Devices connected to the host
+    EnumeratedDevices devicesByDriverKey, devicesByInstanceId;
+    HDEVINFO allDeviceInfo = nullptr;
+    if (auto result = getEnumeratedDevices(); result.has_value()) {
+        std::tie(devicesByDriverKey, devicesByInstanceId, allDeviceInfo) = result.value();
+    } else {
+        std::stringstream ss;
+        ss << "getEnumeratedDevices() failed: " << result.error();
+        return std::unexpected(ss.str());
+    }
+    FreeWiliDevices fwDevices;
+    for (auto&& device: devicesByDriverKey) {
+        // Check if the device is a standalone FreeWili device
+        if (device.second && !Fw::isStandAloneDevice(device.second->vid, device.second->pid)) {
+            continue;
+        }
+        if (!IsEqualGUID(device.second->deviceInfo.ClassGuid, GUID_DEVCLASS_USB)) {
+            // We only care about USB devices
+            continue;
+        }
+        if (auto res = findVolumePaths(
+                allDeviceInfo,
+                device.second,
+                devicesByInstanceId,
+                devicesByDriverKey,
+                0,
+                0
+            );
+            res.has_value())
+        {
+            device.second->driveLetters = res.value();
+        }
+        if (auto serialPort = findSerialPort(allDeviceInfo, device.second, devicesByInstanceId, 0);
+            serialPort.has_value())
+        {
+            device.second->port = serialPort.value();
+        }
+        // This is a hack to not have duplicates for the RP2350
+        if (device.second->vid == USB_VID_FW_RPI
+            && device.second->pid == USB_PID_FW_RPI_2350_UF2_PID
+            && device.second->description.compare("USB Composite Device") == 0)
+        {
+            continue;
+        }
+        USBDevices devices;
+        devices.push_back(
+            Fw::USBDevice {
+                .kind = Fw::getUSBDeviceTypeFrom(device.second->vid, device.second->pid),
+                .vid = device.second->vid,
+                .pid = device.second->pid,
+                .name = device.second->busDescription + " (" + device.second->description + ")",
+                .serial = device.second->serial,
+                .location = device.second->location,
+                .paths = device.second->driveLetters, // TODO
+                .port = device.second->port,
+                ._raw = device.second->instanceId,
+            }
+        );
+        if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
+            fwDevices.push_back(result.value());
+        } else {
+            return std::unexpected(result.error());
+            // TODO
+        }
+    }
+    // Sort the devices by serial number
+    std::sort(
+        fwDevices.begin(),
+        fwDevices.end(),
+        [](const Fw::FreeWiliDevice& lhs, const Fw::FreeWiliDevice& rhs) {
+            // order smallest to largest
+            return lhs.serial < rhs.serial;
+        }
+    );
+    return fwDevices;
+}
+
+auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
+    Fw::FreeWiliDevices devices;
+    if (auto result = _find_all_standalone(); result.has_value()) {
+        devices = std::move(result.value());
+    }
+    if (auto result = _find_all_freewili(); result.has_value()) {
+        devices.insert(devices.end(), result.value().begin(), result.value().end());
+    } else {
+        return std::unexpected(result.error());
+    }
+    return devices;
 }
 
 // NOLINTEND

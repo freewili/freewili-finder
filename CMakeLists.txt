@@ -36,6 +36,7 @@ set(SRC_FILES
 
 # Unit test files
 set(TEST_SRC_FILES
+    test/test_hardware.cpp
     test/test_fwfinder.cpp
     test/test_usbdef.cpp
     test/test_win32.cpp
@@ -58,6 +59,11 @@ add_library(
     ${SRC_FILES}
 )
 
+# Export all symbols on Windows for shared library
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+)
+
 # ============================================================================
 # Project configuration - Includes, Libraries, defines
 # ============================================================================
@@ -72,7 +78,7 @@ target_include_directories(
 set(LIB_LIST "")
 if (WIN32)
     list(APPEND LIB_LIST setupapi Cfgmgr32)
-    add_definitions(-DWIN32_LEAN_AND_MEAN -D_UNICODE -DUNICODE)
+    add_definitions(-DWIN32_LEAN_AND_MEAN -D_UNICODE -DUNICODE -D_WIN32)
 elseif(LINUX)
     list(APPEND LIB_LIST udev)
 elseif(APPLE)

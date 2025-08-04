@@ -29,11 +29,8 @@ int main() {
             const auto& device = devices[i];
 
             std::cout << "Device " << (i + 1) << ": " << device.name << std::endl;
+            std::cout << "  Type: " << Fw::getDeviceTypeName(device.deviceType) << std::endl;
             std::cout << "  Serial: " << device.serial << std::endl;
-            std::cout << "  USB Hub: " << device.usbHub.name << " (VID: 0x" << std::hex
-                      << std::setw(4) << std::setfill('0') << device.usbHub.vid << ", PID: 0x"
-                      << std::hex << std::setw(4) << std::setfill('0') << device.usbHub.pid << ")"
-                      << std::dec << std::endl;
             std::cout << "  Total USB Devices: " << device.usbDevices.size() << std::endl;
 
             // Show different types of USB devices
@@ -56,6 +53,8 @@ int main() {
                 std::cout << "    MainCPU Serial Ports:" << std::endl;
                 for (const auto& mainCpu: mainCpuDevices) {
                     std::cout << "      - " << mainCpu.name << " (Serial: " << mainCpu.serial << ")"
+                              << " Port: "
+                              << (mainCpu.port.has_value() ? mainCpu.port.value() : "No port")
                               << std::endl;
                 }
             }
@@ -66,7 +65,10 @@ int main() {
                 std::cout << "    DisplayCPU Serial Ports:" << std::endl;
                 for (const auto& displayCpu: displayCpuDevices) {
                     std::cout << "      - " << displayCpu.name << " (Serial: " << displayCpu.serial
-                              << ")" << std::endl;
+                              << ")"
+                              << " Port: "
+                              << (displayCpu.port.has_value() ? displayCpu.port.value() : "No port")
+                              << std::endl;
                 }
             }
 
@@ -107,19 +109,6 @@ int main() {
 
             std::cout << std::endl;
         }
-
-        // Demonstrate USB device type detection
-        std::cout << "USB Device Type Examples:" << std::endl;
-        std::cout << "  VID: 0x093C, PID: 0x2054 -> "
-                  << Fw::getUSBDeviceTypeName(Fw::getUSBDeviceTypeFrom(0x093C, 0x2054))
-                  << std::endl;
-        std::cout << "  VID: 0x093C, PID: 0x2055 -> "
-                  << Fw::getUSBDeviceTypeName(Fw::getUSBDeviceTypeFrom(0x093C, 0x2055))
-                  << std::endl;
-        std::cout << "  VID: 0x0403, PID: 0x6014 -> "
-                  << Fw::getUSBDeviceTypeName(Fw::getUSBDeviceTypeFrom(0x0403, 0x6014))
-                  << std::endl;
-
     } else {
         // Handle errors
         std::cerr << "Failed to find FreeWili devices: " << fw_devices.error() << std::endl;

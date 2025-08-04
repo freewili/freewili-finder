@@ -8,6 +8,15 @@
 
 namespace Fw {
 
+enum class DeviceType : uint32_t {
+    Unknown = 0,
+    FreeWili = 1,
+    DefCon2024Badge = 2,
+    DefCon2025FwBadge = 3,
+    UF2 = 4,
+    Winky = 5,
+};
+
 /// Type of USB Device
 enum class USBDeviceType : uint32_t {
     /// USB Hub, every FreeWili has one as the parent
@@ -31,8 +40,10 @@ enum class USBDeviceType : uint32_t {
     _MaxValue,
 };
 
+bool isStandAloneDevice(uint16_t vid, uint16_t pid);
 auto getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid) -> USBDeviceType;
 auto getUSBDeviceTypeName(USBDeviceType type) -> std::string;
+auto getDeviceTypeName(DeviceType type) -> std::string;
 
 /// Common USB device information
 struct USBDevice {
@@ -63,10 +74,11 @@ struct USBDevice {
 typedef std::vector<USBDevice> USBDevices;
 
 struct FreeWiliDevice {
+    DeviceType deviceType;
+
     std::string name;
     std::string serial;
 
-    USBDevice usbHub;
     USBDevices usbDevices;
 
     auto getUSBDevices(USBDeviceType usbDeviceType) const noexcept -> USBDevices;

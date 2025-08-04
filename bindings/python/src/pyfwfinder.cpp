@@ -35,6 +35,15 @@ NB_MODULE(pyfwfinder, m) {
         .value("_MaxValue", Fw::USBDeviceType::_MaxValue)
         .export_values();
 
+    nb::enum_<Fw::DeviceType>(m, "DeviceType")
+        .value("Unknown", Fw::DeviceType::Unknown)
+        .value("FreeWili", Fw::DeviceType::FreeWili)
+        .value("DefCon2024Badge", Fw::DeviceType::DefCon2024Badge)
+        .value("DefCon2025FwBadge", Fw::DeviceType::DefCon2025FwBadge)
+        .value("Winky", Fw::DeviceType::Winky)
+        .value("UF2", Fw::DeviceType::UF2)
+        .export_values();
+
     nb::class_<Fw::USBDevice>(m, "USBDevice")
         .def(nb::init<>())
         .def(
@@ -59,9 +68,9 @@ NB_MODULE(pyfwfinder, m) {
             "__str__",
             [](const Fw::FreeWiliDevice& self) { return self.name + " " + self.serial; }
         )
+        .def_ro("device_type", &Fw::FreeWiliDevice::deviceType)
         .def_ro("name", &Fw::FreeWiliDevice::name)
         .def_ro("serial", &Fw::FreeWiliDevice::serial)
-        .def_ro("usb_hub", &Fw::FreeWiliDevice::usbHub)
         .def_ro("usb_devices", &Fw::FreeWiliDevice::usbDevices)
         .def("get_usb_devices", &Fw::FreeWiliDevice::getUSBDevices);
 
