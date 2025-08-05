@@ -25,12 +25,38 @@ TEST(FwFinder, ExpectedHardware) {
                 << "Expected exactly four USB devices for FreeWili device";
             ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::Hub).size(), 1)
                 << "Expected one USB Hub device";
-            ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::SerialMain).size(), 1)
-                << "Expected one USB SerialMain device";
-            ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::SerialDisplay).size(), 1)
-                << "Expected one USB SerialDisplay device";
             ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::FTDI).size(), 1)
                 << "Expected one USB FTDI device";
+            auto serialMain = device.getUSBDevices(Fw::USBDeviceType::SerialMain);
+            auto serialDisplay = device.getUSBDevices(Fw::USBDeviceType::SerialDisplay);
+            auto massStorage = device.getUSBDevices(Fw::USBDeviceType::MassStorage);
+            if (!massStorage.size()) {
+                // We don't have any in UF2 Bootloader so we should be good here.
+                ASSERT_EQ(serialMain.size(), 1) << "Expected one USB SerialMain device";
+                ASSERT_EQ(serialDisplay.size(), 1) << "Expected one USB SerialDisplay device";
+            } else if (massStorage.size() == 1) {
+                // We are in UF2 mode, so we should only have one serial device
+                if (serialMain.size() == 1) {
+                    ASSERT_EQ(serialDisplay.size(), 0)
+                        << "Expected no USB SerialDisplay device in UF2 mode";
+                    ASSERT_EQ(serialMain[0].location, 1)
+                        << "Expected USB SerialMain device to be at location 1 in UF2 mode";
+                } else if (serialDisplay.size() == 1) {
+                    ASSERT_EQ(serialMain.size(), 0)
+                        << "Expected no USB SerialMain device in UF2 mode";
+                } else {
+                    FAIL() << "Unexpected number of Serial devices in UF2 mode: "
+                           << serialMain.size() << " SerialMain, " << serialDisplay.size()
+                           << " SerialDisplay";
+                }
+            } else if (massStorage.size() == 2) {
+                // We are in UF2 mode with both Main and Display CPUs
+                ASSERT_EQ(serialMain.size(), 0) << "Expected no USB SerialMain device in UF2 mode.";
+                ASSERT_EQ(serialDisplay.size(), 0)
+                    << "Expected no USB SerialDisplay device in UF2 mode.";
+            } else {
+                FAIL() << "Unexpected number of Mass Storage devices: " << massStorage.size();
+            }
         } else if (device.deviceType == Fw::DeviceType::DefCon2024Badge
                    || device.deviceType == Fw::DeviceType::DefCon2025FwBadge
                    || device.deviceType == Fw::DeviceType::Winky)

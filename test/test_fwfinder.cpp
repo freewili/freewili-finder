@@ -95,12 +95,12 @@ TEST(FwFinder, BasicAssertions) {
 }
 
 TEST(FwFinder, isStandAloneDevice) {
-    ASSERT_TRUE(Fw::isStandAloneDevice(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2040_UF2_PID));
     ASSERT_TRUE(Fw::isStandAloneDevice(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2350_UF2_PID));
     ASSERT_TRUE(Fw::isStandAloneDevice(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_WINKY));
     ASSERT_TRUE(Fw::isStandAloneDevice(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_DEFCON_2024));
     ASSERT_TRUE(Fw::isStandAloneDevice(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_DEFCON_BADGE_2025));
 
+    ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2040_UF2_PID));
     ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_CDC_PID));
     ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW_HUB, Fw::USB_PID_FW_HUB));
     ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW_FTDI, Fw::USB_PID_FW_FTDI));
