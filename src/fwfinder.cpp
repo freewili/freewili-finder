@@ -8,8 +8,7 @@
 
 bool Fw::isStandAloneDevice(uint16_t vid, uint16_t pid) {
     // Check if the VID and PID match any known standalone devices
-    return (vid == Fw::USB_VID_FW_RPI && pid == Fw::USB_PID_FW_RPI_2040_UF2_PID
-            || pid == Fw::USB_PID_FW_RPI_2350_UF2_PID)
+    return (vid == Fw::USB_VID_FW_RPI && pid == Fw::USB_PID_FW_RPI_2350_UF2_PID)
         || (vid == Fw::USB_VID_FW_ICS
             && (pid == Fw::USB_PID_FW_WINKY || pid == Fw::USB_PID_FW_DEFCON_2024
                 || pid == Fw::USB_PID_FW_DEFCON_BADGE_2025));

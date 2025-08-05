@@ -20,6 +20,16 @@ target_link_libraries(
         ${PROJECT_NAME}
 )
 
+# Copy DLL to the examples directory on Windows
+if(WIN32)
+    add_custom_command(TARGET basic_usage_cpp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:${PROJECT_NAME}>
+        $<TARGET_FILE_DIR:basic_usage_cpp>
+        COMMENT "Copying fwfinder.dll to examples directory"
+    )
+endif()
+
 # C Example using the C API
 if (FW_BUILD_C_API)
     add_executable(
@@ -40,4 +50,20 @@ if (FW_BUILD_C_API)
         PRIVATE
             cfwfinder
     )
+
+    # Copy DLLs to the examples directory on Windows
+    if(WIN32)
+        add_custom_command(TARGET basic_usage_c POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:cfwfinder>
+            $<TARGET_FILE_DIR:basic_usage_c>
+            COMMENT "Copying cfwfinder.dll to examples directory"
+        )
+        add_custom_command(TARGET basic_usage_c POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:${PROJECT_NAME}>
+            $<TARGET_FILE_DIR:basic_usage_c>
+            COMMENT "Copying fwfinder.dll to examples directory"
+        )
+    endif()
 endif ()
