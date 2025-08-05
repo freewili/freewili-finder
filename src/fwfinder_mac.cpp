@@ -281,7 +281,14 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
 
         auto kind = Fw::getUSBDeviceTypeFrom(vid, pid);
 
-        containerDevices[containerId].push_back(USBDevice { .kind =
+        // For standalone devices, use a unique key that includes the serial number
+        // to ensure each device gets its own entry instead of being grouped together
+        std::string deviceKey = containerId;
+        if (Fw::isStandAloneDevice(vid, pid)) {
+            deviceKey = containerId + "_" + serial + "_" + std::to_string(vid) + "_" + std::to_string(pid);
+        }
+
+        containerDevices[deviceKey].push_back(USBDevice { .kind =
                                                                 Fw::getUSBDeviceTypeFrom(vid, pid),
                                                             .vid = vid,
                                                             .pid = pid,
@@ -292,7 +299,7 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
                                                             .port = serialPort,
                                                             ._raw = "" });
         if (!storagePaths.empty()) {
-            containerDevices[containerId].back().paths = storagePaths;
+            containerDevices[deviceKey].back().paths = storagePaths;
         }
         IOObjectRelease(usbDevice);
     }
