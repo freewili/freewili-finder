@@ -157,7 +157,8 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
             sortedUsbDevices.end(),
             [](const Fw::USBDevice& lhs, const Fw::USBDevice& rhs) {
                 // Always put the hub at the bottom
-                if (rhs.kind == Fw::USBDeviceType::Hub) {
+                if (lhs.kind == Fw::USBDeviceType::Hub ||
+                    rhs.kind == Fw::USBDeviceType::Hub) {
                     return false;
                 }
                 // order smallest to largest
