@@ -253,11 +253,13 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_str(
             return copy_value(usbDevice.serial);
             break;
         case fw_stringtype_path:
-            if (!usbDevice.paths.has_value()) {
+        {
+            if (!usbDevice.paths.has_value() || usbDevice.paths.value().empty()) {
                 return fw_error_none; // No path available for this USB device
             }
             return copy_value(usbDevice.paths.value().front());
             break;
+        }
         case fw_stringtype_port:
             if (!usbDevice.port.has_value()) {
                 return fw_error_none; // No port available for this USB device
