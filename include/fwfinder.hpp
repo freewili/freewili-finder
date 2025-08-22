@@ -8,6 +8,13 @@
 
 namespace Fw {
 
+/// Location of the USB device on the FreeWili Classic hub
+enum class USBHubPortLocation : uint32_t {
+    Main = 1,
+    Display = 2,
+    FPGA = 3,
+};
+
 enum class DeviceType : uint32_t {
     Unknown = 0,
     FreeWili = 1,
@@ -58,7 +65,7 @@ struct USBDevice {
     std::string name;
     /// Serial of the device
     std::string serial;
-    /// USB physical location, 0 = first port
+    /// USB physical location, 1 = first port
     uint32_t location;
 
     /// USB Mass storage Path - This is only valid when kind is MassStorage
@@ -79,16 +86,35 @@ struct FreeWiliDevice {
     std::string name;
     std::string serial;
 
+    // This is a unique ID based on location so we
+    // can identify devices when the configuration
+    // changes.
+    uint64_t uniqueID;
+
     USBDevices usbDevices;
 
+    // Get all USB devices attached to the USB Hub
+    // On standalone devices like the badge this will return Main only.
+    // specifying an empty vector will return all.
+    auto getUSBDevices(std::vector<USBDeviceType> usbDeviceTypes) const noexcept -> USBDevices;
     auto getUSBDevices(USBDeviceType usbDeviceType) const noexcept -> USBDevices;
+    auto getUSBDevices() const noexcept -> USBDevices;
+
+    // Get the Main Processor as a USBDevice
+    auto getMainUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
+    // Get the Display Processor as a USBDevice
+    auto getDisplayUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
+    // Get the FPGA Processor as a USBDevice
+    auto getFPGAUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
+    // Get the Hub as a USBDevice
+    auto getHubUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
 
     /// Helper function to create a FreeWiliDevice from USBDevices
     static auto fromUSBDevices(const USBDevices& usbDevices)
         -> std::expected<FreeWiliDevice, std::string>;
 
     bool operator==(const FreeWiliDevice& other) const noexcept {
-        return name == other.name && serial == other.serial;
+        return uniqueID == other.uniqueID;
     }
 };
 

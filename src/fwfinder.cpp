@@ -61,11 +61,11 @@ auto Fw::getUSBDeviceTypeName(Fw::USBDeviceType type) -> std::string {
 auto Fw::getDeviceTypeName(Fw::DeviceType type) -> std::string {
     switch (type) {
         case Fw::DeviceType::FreeWili:
-            return "FreeWili";
+            return "Free-WiLi";
         case Fw::DeviceType::DefCon2024Badge:
-            return "DefCon2024Badge";
+            return "DefCon 2024 Badge";
         case Fw::DeviceType::DefCon2025FwBadge:
-            return "DefCon2025FwBadge";
+            return "DefCon 2025 Badge";
         case Fw::DeviceType::UF2:
             return "UF2";
         case Fw::DeviceType::Winky:
@@ -75,15 +75,35 @@ auto Fw::getDeviceTypeName(Fw::DeviceType type) -> std::string {
     }
 }
 
-auto Fw::FreeWiliDevice::getUSBDevices(Fw::USBDeviceType usbDeviceType) const noexcept
+auto Fw::FreeWiliDevice::getUSBDevices(std::vector<Fw::USBDeviceType> usbDeviceTypes) const noexcept
     -> Fw::USBDevices {
+    // Helper function to see if a vector contains the DeviceType
+    auto contains = [&](const Fw::USBDeviceType other_type) {
+        return std::find_if(
+            usbDeviceTypes.begin(),
+            usbDeviceTypes.end(),
+            [&](const Fw::USBDeviceType& device_type) {
+                return device_type == other_type;
+            }
+        ) != usbDeviceTypes.end();
+    };
+
     Fw::USBDevices foundDevices;
     std::for_each(usbDevices.begin(), usbDevices.end(), [&](const USBDevice& usb_dev) {
-        if (usb_dev.kind == usbDeviceType) {
+        if (usbDeviceTypes.empty() || contains(usb_dev.kind)) {
             foundDevices.push_back(usb_dev);
         }
     });
     return foundDevices;
+}
+
+auto Fw::FreeWiliDevice::getUSBDevices(Fw::USBDeviceType usbDeviceType) const noexcept -> Fw::USBDevices {
+    std::vector<Fw::USBDeviceType> types = { usbDeviceType };
+    return getUSBDevices(types);
+}
+
+auto Fw::FreeWiliDevice::getUSBDevices() const noexcept -> Fw::USBDevices {
+    return usbDevices;
 }
 
 auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
