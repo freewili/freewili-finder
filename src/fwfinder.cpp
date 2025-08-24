@@ -121,6 +121,7 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
     -> std::expected<Fw::FreeWiliDevice, std::string> {
     std::string name;
     std::string serial;
+    uint64_t uniqueID = std::numeric_limits<uint64_t>::max();
     Fw::DeviceType deviceType = Fw::DeviceType::Unknown;
 
     // Check if this is a standalone device (e.g., Winky)
@@ -143,6 +144,8 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
             }
             name = device.name;
             serial = device.serial;
+            // TODO: Parent should be the parent USB controller location.
+            uniqueID = Fw::generateUniqueID(std::numeric_limits<uint32_t>::max(), device.location);
             break;
         }
     }
@@ -153,34 +156,30 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
     // Original hub-based device logic for FreeWili devices
     // Find the name and serial from the FTDI chip
     if (!isStandaloneDevice) {
+        name = Fw::getDeviceTypeName(Fw::DeviceType::FreeWili);
+        deviceType = Fw::DeviceType::FreeWili; // Default to FreeWili if not standalone
         if (auto it = std::find_if(
                 usbDevices.begin(),
                 usbDevices.end(),
                 [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::FTDI; }
             );
-            it == usbDevices.end())
+            it != usbDevices.end())
         {
-            return std::unexpected(
-                "Failed to get serial number of FreeWiliDevice. Missing FTDI chip."
-            );
-        } else {
-            name = it->name;
             serial = it->serial;
-            deviceType = Fw::DeviceType::FreeWili; // Default to FreeWili if not standalone
+        } else {
+            serial = "Unknown";
         }
 
-        // // Lets seperate the USB Hub
-        // if (auto it = std::find_if(
-        //         sortedUsbDevices.begin(),
-        //         sortedUsbDevices.end(),
-        //         [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::Hub; }
-        //     );
-        //     it == sortedUsbDevices.end())
-        // {
-        //     return std::unexpected("Failed to get the hub of the FreeWiliDevice.");
-        // } else {
-        //     sortedUsbDevices.erase(it);
-        // }
+        // Get the location ID of the hub
+        if (auto it = std::find_if(
+                sortedUsbDevices.begin(),
+                sortedUsbDevices.end(),
+                [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::Hub; }
+            );
+            it != sortedUsbDevices.end())
+        {
+            uniqueID = Fw::generateUniqueID(std::numeric_limits<uint32_t>::max(), it->location);
+        }
 
         // Sort the USB devices
         std::sort(
@@ -201,7 +200,7 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
         .setDeviceType(deviceType)
         .setName(name)
         .setSerial(serial)
-        .setUniqueID(Fw::generateUniqueID(0, 0)) // TODO
+        .setUniqueID(uniqueID)
         .setUSBDevices(std::move(sortedUsbDevices))
         .build();
 }

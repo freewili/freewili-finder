@@ -38,6 +38,7 @@
     #include <vector>
     #include <tuple>
     #include <cctype>
+    #include <iostream>
     #include <fwfinder.hpp>
     #include <fwfinder_windows.hpp>
     #include <usbdef.hpp>
@@ -255,6 +256,79 @@ auto _getDeviceProperty(DEVINST devInst, const DEVPROPKEY key) noexcept
     return stringFromTCHAR(szValue);
 };
 
+// Helper to retrieve MULTI_SZ style device property (e.g. DEVPKEY_Device_LocationPaths)
+auto _getDevicePropertyMultiSz(DEVINST devInst, const DEVPROPKEY key) noexcept
+    -> std::expected<std::vector<std::string>, std::string> {
+    DEVPROPTYPE propertyType = DEVPROP_TYPE_STRING_LIST; // MULTI_SZ
+    // First query required size
+    ULONG size = 0;
+    if (auto res = CM_Get_DevNode_Property(devInst, &key, &propertyType, nullptr, &size, 0);
+        res != CR_BUFFER_SMALL)
+    {
+        if (res == CR_SUCCESS) {
+            // Empty list
+            return std::vector<std::string>();
+        }
+        std::stringstream ss;
+        ss << "CM_Get_DevNode_Property(size) failed with CR error: " << res;
+        return std::unexpected(ss.str());
+    }
+    std::vector<BYTE> buffer(size + sizeof(TCHAR));
+    if (auto res = CM_Get_DevNode_Property(
+            devInst,
+            &key,
+            &propertyType,
+            buffer.data(),
+            &size,
+            0
+        );
+        res != CR_SUCCESS)
+    {
+        std::stringstream ss;
+        ss << "CM_Get_DevNode_Property(data) failed with CR error: " << res;
+        return std::unexpected(ss.str());
+    }
+    // Parse MULTI_SZ (double NUL terminated)
+    std::vector<std::string> values;
+    TCHAR* ptr = reinterpret_cast<TCHAR*>(buffer.data());
+    while (*ptr) {
+        auto s = stringFromTCHAR(ptr);
+        if (!s.empty()) {
+            values.push_back(s);
+        }
+        ptr += s.length() + 1; // advance past string and null
+    }
+    return values;
+};
+
+// Extract port chain numbers from a list of location path strings. We pick the first path that
+// contains USB(x) segments. Example path fragment:
+// "PCIROOT(0)#PCI(1400)#USBROOT(0)#USB(3)#USB(2)#USB(4)" -> {3,2,4}
+auto _extractUSBPortChainFromLocationPaths(const std::vector<std::string>& paths) noexcept
+    -> std::vector<uint8_t> {
+    std::regex usbRegex(R"(USB\((\d+)\))", std::regex_constants::icase);
+    for (auto const& p: paths) {
+        std::sregex_iterator it(p.begin(), p.end(), usbRegex), end;
+        std::vector<uint8_t> chain;
+        for (; it != end; ++it) {
+            try {
+                auto v = static_cast<uint32_t>(std::stoul((*it)[1].str()));
+                if (v <= 255) {
+                    chain.push_back(static_cast<uint8_t>(v));
+                } else {
+                    // Skip values that don't fit in a byte
+                }
+            } catch (...) {
+                // Ignore bad conversions
+            }
+        }
+        if (!chain.empty()) {
+            return chain;
+        }
+    }
+    return {};
+}
+
 // Helper function to get device Property GUID
 auto _getDevicePropertyGUID(DEVINST devInst, const DEVPROPKEY key) noexcept
     -> std::expected<GUID, std::string> {
@@ -370,12 +444,18 @@ struct EnumeratedDevice {
     std::vector<std::string> children;
     std::vector<std::string> removableRelations;
     std::string driveLetter;
-    uint8_t location;
+    // Packed location derived from parsed USB port chain (up to 4 levels, 1 byte each).
+    // If fewer than 4 levels, remaining bytes are 0. Root-most port is stored in the most
+    // significant byte to keep lexical ordering by depth.
+    uint32_t location {0};
     uint16_t vid;
     uint16_t pid;
     std::string serial;
     std::optional<std::string> port;
     std::optional<std::vector<std::string>> driveLetters;
+    // Full USB port chain as reported by DEVPKEY_Device_LocationPaths (e.g. USB(1)->USB(3)->USB(2)).
+    // Stored without packing so future APIs can expose full depth without ambiguity.
+    std::vector<uint8_t> portChain;
 };
 
 typedef std::unordered_map<std::string, std::shared_ptr<EnumeratedDevice>> EnumeratedDevices;
@@ -522,6 +602,27 @@ auto getEnumeratedDevices() noexcept
             result.has_value())
         {
             enumeratedDevice->containerId = result.value();
+        }
+        // Location Paths -> Port Chain
+        if (auto locPaths = _getDevicePropertyMultiSz(
+                devInfoData.DevInst,
+                DEVPKEY_Device_LocationPaths
+            );
+            locPaths.has_value())
+        {
+            auto chain = _extractUSBPortChainFromLocationPaths(locPaths.value());
+            enumeratedDevice->portChain = chain;
+            // Pack first up to 4 entries into uint32 for legacy location field
+            uint32_t packed = 0;
+            size_t depth = std::min<size_t>(4, chain.size());
+            for (size_t idx = 0; idx < depth; ++idx) {
+                // Root-most should end up in most significant byte -> shift remaining slots
+                size_t shiftFromMSB = (3 - idx) * 8; // idx 0 -> 24, 1 -> 16 ...
+                packed |= static_cast<uint32_t>(chain[idx]) << shiftFromMSB;
+            }
+            enumeratedDevice->location = packed;
+        } else {
+            // Ignore failures; location remains 0
         }
     }
 
@@ -1007,11 +1108,12 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
                 }
             );
         }
+        // Create FreeWili device from USB devices with UniqueID
         if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
-            fwDevices.push_back(result.value());
+            auto fwDevice = std::move(result.value());
+            fwDevices.push_back(std::move(fwDevice));
         } else {
-            return std::unexpected(result.error());
-            // TOOD
+            std::cerr << "Failed to create FreeWiliDevice: " << result.error() << std::endl;
         }
     }
     // Sort the devices by serial number
