@@ -215,3 +215,70 @@ auto Fw::generateUniqueID(uint32_t parentLocation, uint32_t deviceLocation) -> u
 Fw::FreeWiliDeviceBuilder Fw::FreeWiliDevice::builder() {
     return Fw::FreeWiliDeviceBuilder();
 }
+
+auto Fw::FreeWiliDevice::getMainUSBDevice() const noexcept
+    -> std::expected<USBDevice, std::string> {
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) {
+                return usb_dev.location == static_cast<uint32_t>(Fw::USBHubPortLocation::Main)
+                    && usb_dev.kind != Fw::USBDeviceType::Hub
+                    && usb_dev.kind != Fw::USBDeviceType::Other;
+            }
+        );
+        it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("Main USB device not found");
+}
+
+auto Fw::FreeWiliDevice::getDisplayUSBDevice() const noexcept
+    -> std::expected<USBDevice, std::string> {
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) {
+                return usb_dev.location == static_cast<uint32_t>(Fw::USBHubPortLocation::Display)
+                    && usb_dev.kind != Fw::USBDeviceType::Hub
+                    && usb_dev.kind != Fw::USBDeviceType::Other;
+            }
+        );
+        it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("Display USB device not found");
+}
+
+auto Fw::FreeWiliDevice::getFPGAUSBDevice() const noexcept
+    -> std::expected<USBDevice, std::string> {
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) {
+                return usb_dev.location == static_cast<uint32_t>(Fw::USBHubPortLocation::FPGA)
+                    && usb_dev.kind != Fw::USBDeviceType::Hub
+                    && usb_dev.kind != Fw::USBDeviceType::Other;
+            }
+        );
+        it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("FPGA USB device not found");
+}
+
+auto Fw::FreeWiliDevice::getHubUSBDevice() const noexcept -> std::expected<USBDevice, std::string> {
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::Hub; }
+        );
+        it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("Hub USB device not found");
+}
