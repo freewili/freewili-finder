@@ -38,6 +38,7 @@ private:
     std::optional<std::string> serial_;
     std::optional<uint64_t> uniqueID_;
     std::optional<Fw::USBDevices> usbDevices_;
+    std::optional<bool> standalone_;
 
 public:
     /**
@@ -77,6 +78,13 @@ public:
      */
     FreeWiliDeviceBuilder& setUniqueID(uint64_t id);
 
+    /**
+     * @brief Sets the standalone status for the FreeWiliDevice being built.
+     * 
+     * @param standalone True if the device is standalone, false otherwise
+     * @return Reference to this builder for method chaining
+     */
+    FreeWiliDeviceBuilder& setStandalone(bool standalone);
     /**
      * @brief Sets the USB devices list for the FreeWiliDevice being built (copy).
      * 

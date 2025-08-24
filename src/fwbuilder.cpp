@@ -23,6 +23,11 @@ FreeWiliDeviceBuilder& FreeWiliDeviceBuilder::setUniqueID(uint64_t id) {
     return *this;
 }
 
+FreeWiliDeviceBuilder& FreeWiliDeviceBuilder::setStandalone(bool standalone) {
+    standalone_ = standalone;
+    return *this;
+}
+
 FreeWiliDeviceBuilder& FreeWiliDeviceBuilder::setUSBDevices(const Fw::USBDevices& devices) {
     usbDevices_ = devices;
     return *this;
@@ -44,6 +49,7 @@ std::expected<FreeWiliDevice, std::string> FreeWiliDeviceBuilder::build() {
         name_.value(),
         serial_.value(),
         uniqueID_.value(),
+        standalone_.value(),
         std::move(usbDevices_.value())
     );
 }
@@ -80,6 +86,10 @@ std::optional<std::string> FreeWiliDeviceBuilder::validate() const {
 
     if (deviceType_.value() == DeviceType::Unknown) {
         return "Device type cannot be Unknown";
+    }
+
+    if (!standalone_.has_value()) {
+        return "Device standalone status is required but not set";
     }
 
     return std::nullopt; // No validation errors

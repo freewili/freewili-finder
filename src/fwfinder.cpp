@@ -81,6 +81,7 @@ Fw::FreeWiliDevice::FreeWiliDevice(FreeWiliDevice&& other) noexcept:
     name(std::move(other.name)),
     serial(std::move(other.serial)),
     uniqueID(other.uniqueID),
+    standalone(other.standalone),
     usbDevices(std::move(other.usbDevices)) {
     other.deviceType = Fw::DeviceType::Unknown;
     other.uniqueID = std::numeric_limits<uint64_t>::max();
@@ -201,6 +202,7 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
         .setName(name)
         .setSerial(serial)
         .setUniqueID(uniqueID)
+        .setStandalone(isStandaloneDevice)
         .setUSBDevices(std::move(sortedUsbDevices))
         .build();
 }
@@ -217,7 +219,12 @@ Fw::FreeWiliDeviceBuilder Fw::FreeWiliDevice::builder() {
 
 auto Fw::FreeWiliDevice::getMainUSBDevice() const noexcept
     -> std::expected<USBDevice, std::string> {
-    if (auto it = std::find_if(
+    if (standalone) {
+        if (usbDevices.size() == 1 && isStandAloneDevice(usbDevices[0].vid, usbDevices[0].pid)) {
+            return usbDevices[0];
+        }
+    }
+    else if (auto it = std::find_if(
             usbDevices.begin(),
             usbDevices.end(),
             [&](const USBDevice& usb_dev) {
@@ -235,7 +242,12 @@ auto Fw::FreeWiliDevice::getMainUSBDevice() const noexcept
 
 auto Fw::FreeWiliDevice::getDisplayUSBDevice() const noexcept
     -> std::expected<USBDevice, std::string> {
-    if (auto it = std::find_if(
+    if (standalone) {
+        std::stringstream ss;
+        ss << getDeviceTypeName(deviceType) << " is a standalone device and has no Display USB device.";
+        return std::unexpected(ss.str());
+    }
+    else if (auto it = std::find_if(
             usbDevices.begin(),
             usbDevices.end(),
             [&](const USBDevice& usb_dev) {
@@ -253,7 +265,11 @@ auto Fw::FreeWiliDevice::getDisplayUSBDevice() const noexcept
 
 auto Fw::FreeWiliDevice::getFPGAUSBDevice() const noexcept
     -> std::expected<USBDevice, std::string> {
-    if (auto it = std::find_if(
+    if (standalone) {
+        std::stringstream ss;
+        ss << getDeviceTypeName(deviceType) << " is a standalone device and has no FPGA USB device.";
+        return std::unexpected(ss.str());
+    } else if (auto it = std::find_if(
             usbDevices.begin(),
             usbDevices.end(),
             [&](const USBDevice& usb_dev) {
@@ -270,7 +286,11 @@ auto Fw::FreeWiliDevice::getFPGAUSBDevice() const noexcept
 }
 
 auto Fw::FreeWiliDevice::getHubUSBDevice() const noexcept -> std::expected<USBDevice, std::string> {
-    if (auto it = std::find_if(
+    if (standalone) {
+        std::stringstream ss;
+        ss << getDeviceTypeName(deviceType) << " is a standalone device and has no HUB USB device.";
+        return std::unexpected(ss.str());
+    } else if (auto it = std::find_if(
             usbDevices.begin(),
             usbDevices.end(),
             [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::Hub; }

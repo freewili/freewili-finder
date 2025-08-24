@@ -94,6 +94,8 @@ struct FreeWiliDevice {
     // changes.
     uint64_t uniqueID;
 
+    bool standalone;
+
     USBDevices usbDevices;
 
     // Copy constructor
@@ -141,8 +143,8 @@ private:
     friend class FreeWiliDeviceBuilder;
     
     FreeWiliDevice(Fw::DeviceType type, const std::string& name, const std::string& serial, 
-                uint64_t id, Fw::USBDevices&& devices) 
-    : deviceType(type), name(name), serial(serial), uniqueID(id), usbDevices(std::move(devices)) {}
+                uint64_t id, bool standalone, Fw::USBDevices&& devices) 
+    : deviceType(type), name(name), serial(serial), uniqueID(id), standalone(standalone), usbDevices(std::move(devices)) {}
 
 };
 
