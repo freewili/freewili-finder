@@ -35,6 +35,7 @@ endif ()
 # ============================================================================
 set(SRC_FILES
     src/fwfinder.cpp
+    src/fwbuilder.cpp
     src/fwfinder_linux.cpp
     src/fwfinder_mac.cpp
     src/fwfinder_windows.cpp

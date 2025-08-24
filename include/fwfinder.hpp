@@ -8,6 +8,9 @@
 
 namespace Fw {
 
+// Forward declaration
+class FreeWiliDeviceBuilder;
+
 /// Location of the USB device on the FreeWili Classic hub
 enum class USBHubPortLocation : uint32_t {
     Main = 1,
@@ -93,6 +96,15 @@ struct FreeWiliDevice {
 
     USBDevices usbDevices;
 
+    // Copy constructor
+    FreeWiliDevice(const FreeWiliDevice& other) = default;
+    
+    // Move constructor
+    FreeWiliDevice(FreeWiliDevice&& other) noexcept;
+    
+    // Copy assignment operator
+    FreeWiliDevice& operator=(const FreeWiliDevice& other) = default;
+
     // Get all USB devices attached to the USB Hub
     // On standalone devices like the badge this will return Main only.
     // specifying an empty vector will return all.
@@ -113,9 +125,25 @@ struct FreeWiliDevice {
     static auto fromUSBDevices(const USBDevices& usbDevices)
         -> std::expected<FreeWiliDevice, std::string>;
 
+    /**
+     * @brief Creates a new FreeWiliDeviceBuilder for constructing FreeWiliDevice objects.
+     * 
+     * @return A new FreeWiliDeviceBuilder instance for fluent construction
+     */
+    static FreeWiliDeviceBuilder builder();
+
     bool operator==(const FreeWiliDevice& other) const noexcept {
         return uniqueID == other.uniqueID;
     }
+
+private:
+    // Private constructor for builder pattern - only accessible by FreeWiliDeviceBuilder
+    friend class FreeWiliDeviceBuilder;
+    
+    FreeWiliDevice(Fw::DeviceType type, const std::string& name, const std::string& serial, 
+                uint64_t id, Fw::USBDevices&& devices) 
+    : deviceType(type), name(name), serial(serial), uniqueID(id), usbDevices(std::move(devices)) {}
+
 };
 
 /// Free-Wili Devices
@@ -142,5 +170,25 @@ typedef std::vector<FreeWiliDevice> FreeWiliDevices;
    * }
    */
 auto find_all() noexcept -> std::expected<FreeWiliDevices, std::string>;
+
+/**
+ * @brief Generates a unique 64-bit ID from parent and device USB locations.
+ *
+ * Creates a hierarchical unique identifier by combining the parent USB controller
+ * location in the upper 32 bits and the device's own USB location in the lower
+ * 32 bits. This allows for consistent device identification across USB topology
+ * changes while maintaining hierarchical relationships.
+ *
+ * @param parentLocation The USB location of the parent device (upper 32 bits)
+ * @param deviceLocation The USB location of the device itself (lower 32 bits)
+ * @return A 64-bit unique identifier combining both locations
+ *
+ * @code{.cpp}
+ * // Example: Parent at location 2, device at location 5
+ * uint64_t uniqueId = Fw::generateUniqueID(2, 5);
+ * // Result: 0x0000000200000005
+ * @endcode
+ */
+auto generateUniqueID(uint32_t parentLocation, uint32_t deviceLocation) -> uint64_t;
 
 }; // namespace Fw

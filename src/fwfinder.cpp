@@ -1,4 +1,5 @@
 #include <fwfinder.hpp>
+#include <fwbuilder.hpp>
 #include <usbdef.hpp>
 
 #include <expected>
@@ -75,17 +76,26 @@ auto Fw::getDeviceTypeName(Fw::DeviceType type) -> std::string {
     }
 }
 
+Fw::FreeWiliDevice::FreeWiliDevice(FreeWiliDevice&& other) noexcept:
+    deviceType(other.deviceType),
+    name(std::move(other.name)),
+    serial(std::move(other.serial)),
+    uniqueID(other.uniqueID),
+    usbDevices(std::move(other.usbDevices)) {
+    other.deviceType = Fw::DeviceType::Unknown;
+    other.uniqueID = std::numeric_limits<uint64_t>::max();
+}
+
 auto Fw::FreeWiliDevice::getUSBDevices(std::vector<Fw::USBDeviceType> usbDeviceTypes) const noexcept
     -> Fw::USBDevices {
     // Helper function to see if a vector contains the DeviceType
     auto contains = [&](const Fw::USBDeviceType other_type) {
         return std::find_if(
-            usbDeviceTypes.begin(),
-            usbDeviceTypes.end(),
-            [&](const Fw::USBDeviceType& device_type) {
-                return device_type == other_type;
-            }
-        ) != usbDeviceTypes.end();
+                   usbDeviceTypes.begin(),
+                   usbDeviceTypes.end(),
+                   [&](const Fw::USBDeviceType& device_type) { return device_type == other_type; }
+               )
+            != usbDeviceTypes.end();
     };
 
     Fw::USBDevices foundDevices;
@@ -97,7 +107,8 @@ auto Fw::FreeWiliDevice::getUSBDevices(std::vector<Fw::USBDeviceType> usbDeviceT
     return foundDevices;
 }
 
-auto Fw::FreeWiliDevice::getUSBDevices(Fw::USBDeviceType usbDeviceType) const noexcept -> Fw::USBDevices {
+auto Fw::FreeWiliDevice::getUSBDevices(Fw::USBDeviceType usbDeviceType) const noexcept
+    -> Fw::USBDevices {
     std::vector<Fw::USBDeviceType> types = { usbDeviceType };
     return getUSBDevices(types);
 }
@@ -177,8 +188,7 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
             sortedUsbDevices.end(),
             [](const Fw::USBDevice& lhs, const Fw::USBDevice& rhs) {
                 // Always put the hub at the bottom
-                if (lhs.kind == Fw::USBDeviceType::Hub ||
-                    rhs.kind == Fw::USBDeviceType::Hub) {
+                if (lhs.kind == Fw::USBDeviceType::Hub || rhs.kind == Fw::USBDeviceType::Hub) {
                     return false;
                 }
                 // order smallest to largest
@@ -187,10 +197,21 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
         );
     }
 
-    return Fw::FreeWiliDevice {
-        .deviceType = deviceType,
-        .name = name,
-        .serial = serial,
-        .usbDevices = sortedUsbDevices,
-    };
+    return Fw::FreeWiliDevice::builder()
+        .setDeviceType(deviceType)
+        .setName(name)
+        .setSerial(serial)
+        .setUniqueID(Fw::generateUniqueID(0, 0)) // TODO
+        .setUSBDevices(std::move(sortedUsbDevices))
+        .build();
+}
+
+auto Fw::generateUniqueID(uint32_t parentLocation, uint32_t deviceLocation) -> uint64_t {
+    // Generate UniqueID: upper bytes = parent location, lower bytes = device location
+    uint64_t uniqueID = (static_cast<uint64_t>(parentLocation) << 32) | deviceLocation;
+    return uniqueID;
+}
+
+Fw::FreeWiliDeviceBuilder Fw::FreeWiliDevice::builder() {
+    return Fw::FreeWiliDeviceBuilder();
 }
