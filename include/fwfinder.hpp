@@ -78,6 +78,8 @@ struct USBDevice {
 
     /// Internal system path of the USBDevice
     std::string _raw;
+
+    bool operator==(const USBDevice& other) const noexcept = default;
 };
 
 /// Container of all USB Devices.
@@ -100,10 +102,10 @@ struct FreeWiliDevice {
 
     // Copy constructor
     FreeWiliDevice(const FreeWiliDevice& other) = default;
-    
+
     // Move constructor
     FreeWiliDevice(FreeWiliDevice&& other) noexcept;
-    
+
     // Copy assignment operator
     FreeWiliDevice& operator=(const FreeWiliDevice& other) = default;
 
@@ -141,11 +143,21 @@ struct FreeWiliDevice {
 private:
     // Private constructor for builder pattern - only accessible by FreeWiliDeviceBuilder
     friend class FreeWiliDeviceBuilder;
-    
-    FreeWiliDevice(Fw::DeviceType type, const std::string& name, const std::string& serial, 
-                uint64_t id, bool standalone, Fw::USBDevices&& devices) 
-    : deviceType(type), name(name), serial(serial), uniqueID(id), standalone(standalone), usbDevices(std::move(devices)) {}
 
+    FreeWiliDevice(
+        Fw::DeviceType type,
+        const std::string& name,
+        const std::string& serial,
+        uint64_t id,
+        bool standalone,
+        Fw::USBDevices&& devices
+    ):
+        deviceType(type),
+        name(name),
+        serial(serial),
+        uniqueID(id),
+        standalone(standalone),
+        usbDevices(std::move(devices)) {}
 };
 
 /// Free-Wili Devices

@@ -107,6 +107,17 @@ typedef enum _fw_inttype_t {
 } _fw_inttype_t;
 typedef uint32_t fw_inttype_t;
 
+typedef enum _fw_usbdevice_set_t {
+    fw_usbdevice_iter_main,
+    fw_usbdevice_iter_display,
+    fw_usbdevice_iter_fpga,
+    fw_usbdevice_iter_hub,
+
+    // Keep this at the end
+    fw_usbdevice_iter__maxvalue
+} _fw_usbdevice_iter_set_t;
+typedef uint32_t fw_usbdevice_iter_set_t;
+
 /**
  * @brief Opaque type for a C++ FreeWiliDevice.
  *
@@ -206,6 +217,46 @@ CFW_FINDER_API fw_error_t
 fw_device_get_type(fw_freewili_device_t* device, fw_devicetype_t* device_type);
 
 /**
+ * @brief Retrieves the name of the device type.
+ *
+ * This function retrieves the type of device being enumerated.
+ * The type is returned as a fw_devicetype_t value.
+ *
+ * @param device_type Pointer to the fw_devicetype_t from which to retrieve the name of the device type.
+ * @param name[out] Pointer to a buffer where the name of the device type will be stored.
+ * @param name_size[in,out] Pointer to a uint32_t that will be updated with the size of the name buffer.
+ *
+ * @return fw_error_success on success, or an error code on failure.
+ */
+CFW_FINDER_API fw_error_t
+fw_device_get_type_name(fw_devicetype_t device_type, char* const name, uint32_t* name_size);
+
+/**
+ * @brief Determine if the device is standalone.
+ *
+ * This function checks if the specified FreeWiLi device is standalone (not part of a hub).
+ *
+ * @param device        Pointer to the fw_freewili_device_t to check.
+ * @param is_standalone Pointer to a boolean that will be set to true if the device is standalone, false otherwise.
+ *
+ * @return fw_error_success if the operation was successful, fw_error_invalid_argument if the device or is_standalone is NULL.
+ */
+CFW_FINDER_API fw_error_t
+fw_device_is_standalone(fw_freewili_device_t* device, bool* is_standalone);
+
+/**
+ * @brief Get the unique ID of the device.
+ *
+ * This function retrieves the unique ID of the specified FreeWiLi device.
+ *
+ * @param device Pointer to the fw_freewili_device_t to check.
+ * @param unique_id Pointer to a uint64_t that will be set to the unique ID of the device.
+ *
+ * @return fw_error_success if the operation was successful, fw_error_invalid_argument if the device or unique_id is NULL.
+ */
+CFW_FINDER_API fw_error_t fw_device_unique_id(fw_freewili_device_t* device, uint64_t* unique_id);
+
+/**
     * @brief Begins the USB device enumeration for a FreeWiLi device.
     *
     * This function initializes the USB device enumeration process for the specified FreeWiLi device.
@@ -241,6 +292,30 @@ CFW_FINDER_API fw_error_t fw_usb_device_begin(fw_freewili_device_t* device);
 CFW_FINDER_API fw_error_t fw_usb_device_next(fw_freewili_device_t* device);
 
 /**
+    * @brief Retrieves the specified USB device from a FreeWiLi device.
+    *
+    * @param device Pointer to the fw_freewili_device_t for which to select the USB device.
+    * @param iter_set The USB device iterator set to use.
+    * @param error_message Pointer to a buffer where the error message will be stored.
+    * @param error_message_size Pointer to a uint32_t that will be updated with the size of the error message.
+    *
+    * @return fw_error_success on success, or an error code on failure. fw_error_no_more_devices if there are no more USB devices to enumerate.
+    *
+    * @note This function doesn't need fw_usb_device_begin to be called first. This interrupts the iterator state, 
+    *       fw_usb_device_begin should be called again if fw_usb_device_next needs to be used.
+    *       It will return the Main USB device or an error if there are no more devices.
+    *
+    * @see fw_usb_device_get_str
+    * @see fw_usb_device_get_int
+ */
+CFW_FINDER_API fw_error_t fw_usb_device_set(
+    fw_freewili_device_t* device,
+    fw_usbdevice_iter_set_t iter_set,
+    char* const error_message,
+    uint32_t* error_message_size
+);
+
+/**
  * @brief Provides the count of USB devices found.
  *
  * @param device Pointer to the fw_freewili_device_t from which to retrieve the next USB device.
@@ -263,6 +338,24 @@ CFW_FINDER_API fw_error_t fw_usb_device_count(fw_freewili_device_t* device, uint
  */
 CFW_FINDER_API fw_error_t
 fw_usb_device_get_type(fw_freewili_device_t* device, fw_usbdevicetype_t* usb_device_type);
+
+/**
+ * @brief Retrieves the name of the USB device type.
+ *
+ * This function retrieves the type of USB device being enumerated.
+ * The type is returned as a fw_usbdevicetype_t value.
+ *
+ * @param usb_device_type Pointer to the fw_usbdevicetype_t from which to retrieve the name of the USB device type.
+ * @param name[out] Pointer to a buffer where the name of the USB device type will be stored.
+ * @param name_size[in,out] Pointer to a uint32_t that will be updated with the size of the name buffer.
+ *
+ * @return fw_error_success on success, or an error code on failure.
+ */
+CFW_FINDER_API fw_error_t fw_usb_device_get_type_name(
+    fw_usbdevicetype_t usb_device_type,
+    char* const name,
+    uint32_t* name_size
+);
 
 /**
  * @brief Retrieves a string value from a USB device.

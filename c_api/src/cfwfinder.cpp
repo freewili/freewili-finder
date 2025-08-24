@@ -153,6 +153,70 @@ fw_device_get_type(fw_freewili_device_t* device, fw_devicetype_t* device_type) {
     return fw_error_success;
 }
 
+CFW_FINDER_API fw_error_t
+fw_device_get_type_name(fw_devicetype_t device_type, char* const name, uint32_t* name_size) {
+    if (name == nullptr || name_size == nullptr) {
+        return fw_error_invalid_parameter;
+    }
+
+    std::string type_name;
+    switch (device_type) {
+        case fw_devicetype_unknown:
+            type_name = Fw::getDeviceTypeName(Fw::DeviceType::Unknown);
+            break;
+        case fw_devicetype_freewili:
+            type_name = Fw::getDeviceTypeName(Fw::DeviceType::FreeWili);
+            break;
+        case fw_devicetype_defcon2024badge:
+            type_name = Fw::getDeviceTypeName(Fw::DeviceType::DefCon2024Badge);
+            break;
+        case fw_devicetype_defcon2025fwbadge:
+            type_name = Fw::getDeviceTypeName(Fw::DeviceType::DefCon2025FwBadge);
+            break;
+        case fw_devicetype_uf2:
+            type_name = Fw::getDeviceTypeName(Fw::DeviceType::UF2);
+            break;
+        case fw_devicetype_winky:
+            type_name = Fw::getDeviceTypeName(Fw::DeviceType::Winky);
+            break;
+        default:
+            type_name = std::string("Unknown Device Type");
+    }
+
+    auto size = type_name.copy(name, *name_size - 1);
+    name[*name_size - 1] = '\0'; // Null-terminate the string
+    *name_size = size + 1; // Update the size to include the null terminator
+
+    return fw_error_success;
+}
+
+CFW_FINDER_API fw_error_t
+fw_device_is_standalone(fw_freewili_device_t* device, bool* is_standalone) {
+    if (device == nullptr || is_standalone == nullptr) {
+        return fw_error_invalid_parameter;
+    }
+
+    if (!fw_device_is_valid(device)) {
+        return fw_error_invalid_device;
+    }
+
+    *is_standalone = device->device.standalone;
+    return fw_error_success;
+}
+
+CFW_FINDER_API fw_error_t fw_device_unique_id(fw_freewili_device_t* device, uint64_t* unique_id) {
+    if (device == nullptr || unique_id == nullptr) {
+        return fw_error_invalid_parameter;
+    }
+
+    if (!fw_device_is_valid(device)) {
+        return fw_error_invalid_device;
+    }
+
+    *unique_id = device->device.uniqueID;
+    return fw_error_success;
+}
+
 CFW_FINDER_API fw_error_t fw_usb_device_begin(fw_freewili_device_t* device) {
     if (device == nullptr) {
         return fw_error_invalid_parameter;
@@ -181,7 +245,62 @@ CFW_FINDER_API fw_error_t fw_usb_device_next(fw_freewili_device_t* device) {
     }
 
     ++device->usbDevicesIter; // Move to the next USB device
-    return fw_error_success;
+    if (device->usbDevicesIter == device->device.usbDevices.end()) {
+        return fw_error_no_more_devices; // No more USB devices to enumerate
+    } else {
+        return fw_error_success;
+    }
+}
+
+CFW_FINDER_API fw_error_t fw_usb_device_set(
+    fw_freewili_device_t* device,
+    fw_usbdevice_iter_set_t iter_set,
+    char* const error_message,
+    uint32_t* error_message_size
+) {
+    if (device == nullptr || error_message == nullptr || error_message_size == nullptr) {
+        return fw_error_invalid_parameter;
+    }
+
+    if (!fw_device_is_valid(device)) {
+        return fw_error_invalid_device;
+    }
+
+    auto usb_device = std::expected<USBDevice, std::string> {};
+
+    if (iter_set == fw_usbdevice_iter_main) {
+        usb_device = device->device.getMainUSBDevice();
+    } else if (iter_set == fw_usbdevice_iter_display) {
+        usb_device = device->device.getDisplayUSBDevice();
+    } else if (iter_set == fw_usbdevice_iter_fpga) {
+        usb_device = device->device.getFPGAUSBDevice();
+    } else if (iter_set == fw_usbdevice_iter_hub) {
+        usb_device = device->device.getHubUSBDevice();
+    } else {
+        usb_device = std::unexpected("Invalid USB device iterator set");
+    }
+
+    if (usb_device.has_value()) {
+        device->usbDevicesIter = std::find_if(
+            device->device.usbDevices.begin(),
+            device->device.usbDevices.end(),
+            [&](USBDevice& d) { return d == usb_device.value(); }
+        );
+        if (device->usbDevicesIter == device->device.usbDevices.end()) {
+            auto size = std::string("fw_usb_device_set() internal error")
+                            .copy(error_message, *error_message_size - 1);
+            error_message[*error_message_size - 1] = '\0'; // Null-terminate the string
+            *error_message_size = size + 1; // Update the size to include the null terminator
+            return fw_error_internal_error;
+        }
+        return fw_error_success;
+    } else {
+        // Unable to get Main USB device
+        auto size = usb_device.error().copy(error_message, *error_message_size - 1);
+        error_message[*error_message_size - 1] = '\0'; // Null-terminate the string
+        *error_message_size = size + 1; // Update the size to include the null terminator
+        return fw_error_no_more_devices;
+    }
 }
 
 CFW_FINDER_API fw_error_t fw_usb_device_count(fw_freewili_device_t* device, uint32_t* count) {
@@ -213,6 +332,52 @@ fw_usb_device_get_type(fw_freewili_device_t* device, fw_usbdevicetype_t* usb_dev
 
     const auto& usbDevice = *device->usbDevicesIter;
     *usb_device_type = static_cast<fw_usbdevicetype_t>(usbDevice.kind);
+    return fw_error_success;
+}
+
+CFW_FINDER_API fw_error_t fw_usb_device_get_type_name(
+    fw_usbdevicetype_t usb_device_type,
+    char* const name,
+    uint32_t* name_size
+) {
+    if (name == nullptr || name_size == nullptr) {
+        return fw_error_invalid_parameter;
+    }
+
+    std::string type_name;
+    switch (usb_device_type) {
+        case fw_usbdevicetype_hub:
+            type_name = getUSBDeviceTypeName(USBDeviceType::Hub);
+            break;
+        case fw_usbdevicetype_serial:
+            type_name = getUSBDeviceTypeName(USBDeviceType::Serial);
+            break;
+        case fw_usbdevicetype_serialmain:
+            type_name = getUSBDeviceTypeName(USBDeviceType::SerialMain);
+            break;
+        case fw_usbdevicetype_serialdisplay:
+            type_name = getUSBDeviceTypeName(USBDeviceType::SerialDisplay);
+            break;
+        case fw_usbdevicetype_massstorage:
+            type_name = getUSBDeviceTypeName(USBDeviceType::MassStorage);
+            break;
+        case fw_usbdevicetype_esp32:
+            type_name = getUSBDeviceTypeName(USBDeviceType::ESP32);
+            break;
+        case fw_usbdevicetype_ftdi:
+            type_name = getUSBDeviceTypeName(USBDeviceType::FTDI);
+            break;
+        case fw_usbdevicetype_other:
+            type_name = getUSBDeviceTypeName(USBDeviceType::Other);
+            break;
+        default:
+            type_name = std::string("Unknown USB Device Type");
+    }
+
+    auto size = type_name.copy(name, *name_size - 1);
+    name[*name_size - 1] = '\0'; // Null-terminate the string
+    *name_size = size + 1; // Update the size to include the null terminator
+
     return fw_error_success;
 }
 
@@ -252,8 +417,7 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_str(
         case fw_stringtype_serial:
             return copy_value(usbDevice.serial);
             break;
-        case fw_stringtype_path:
-        {
+        case fw_stringtype_path: {
             if (!usbDevice.paths.has_value() || usbDevice.paths.value().empty()) {
                 return fw_error_none; // No path available for this USB device
             }
