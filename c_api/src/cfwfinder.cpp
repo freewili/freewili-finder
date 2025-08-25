@@ -1,4 +1,5 @@
 #include <cfwfinder.h>
+#include <cfwfinder_internal.hpp>
 #include <fwfinder.hpp>
 #include <algorithm>
 #include <memory>
@@ -33,10 +34,13 @@ CFW_FINDER_API fw_error_t fw_device_find_all(
         if (error_message == nullptr || error_message_size == nullptr) {
             return fw_error_invalid_parameter;
         }
-        auto size = found_fw_devices.error().copy(error_message, *error_message_size - 1);
-        error_message[*error_message_size - 1] = '\0'; // Null-terminate the string
-        *error_message_size = size + 1; // Update the size to include the null terminator
-        return fw_error_internal_error;
+        if (fixedStringCopy(error_message, error_message_size, found_fw_devices.error())
+                .has_value())
+        {
+            return fw_error_internal_error;
+        } else {
+            return fw_error_memory;
+        }
     }
 
     for (const auto& device: found_fw_devices.value()) {
@@ -113,13 +117,13 @@ CFW_FINDER_API fw_error_t fw_device_get_str(
         return fw_error_invalid_device;
     }
 
-    auto copy_value = [&value, value_size](const std::string& str) {
-        if (value_size < str.size() + 1) {
-            return fw_error_memory; // Not enough space to copy the string
+    auto copy_value = [&value, &value_size](const std::string& str) {
+        uint32_t size = value_size;
+        if (fixedStringCopy(value, &size, str).has_value()) {
+            return fw_error_success;
+        } else {
+            return fw_error_memory;
         }
-        str.copy(value, value_size - 1);
-        value[value_size - 1] = '\0'; // Null-terminate the string
-        return fw_error_success;
     };
 
     switch (str_type) {
@@ -183,10 +187,9 @@ fw_device_get_type_name(fw_devicetype_t device_type, char* const name, uint32_t*
             type_name = std::string("Unknown Device Type");
     }
 
-    auto size = type_name.copy(name, *name_size - 1);
-    name[*name_size - 1] = '\0'; // Null-terminate the string
-    *name_size = size + 1; // Update the size to include the null terminator
-
+    if (!fixedStringCopy(name, name_size, type_name).has_value()) {
+        return fw_error_memory;
+    }
     return fw_error_success;
 }
 
@@ -287,18 +290,24 @@ CFW_FINDER_API fw_error_t fw_usb_device_set(
             [&](USBDevice& d) { return d == usb_device.value(); }
         );
         if (device->usbDevicesIter == device->device.usbDevices.end()) {
-            auto size = std::string("fw_usb_device_set() internal error")
-                            .copy(error_message, *error_message_size - 1);
-            error_message[*error_message_size - 1] = '\0'; // Null-terminate the string
-            *error_message_size = size + 1; // Update the size to include the null terminator
+            // Device not found
+            if (!fixedStringCopy(
+                     error_message,
+                     error_message_size,
+                     "fw_usb_device_set() internal error"
+                )
+                     .has_value())
+            {
+                return fw_error_memory;
+            }
             return fw_error_internal_error;
         }
         return fw_error_success;
     } else {
         // Unable to get Main USB device
-        auto size = usb_device.error().copy(error_message, *error_message_size - 1);
-        error_message[*error_message_size - 1] = '\0'; // Null-terminate the string
-        *error_message_size = size + 1; // Update the size to include the null terminator
+        if (!fixedStringCopy(error_message, error_message_size, usb_device.error()).has_value()) {
+            return fw_error_memory;
+        }
         return fw_error_no_more_devices;
     }
 }
@@ -374,10 +383,9 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_type_name(
             type_name = std::string("Unknown USB Device Type");
     }
 
-    auto size = type_name.copy(name, *name_size - 1);
-    name[*name_size - 1] = '\0'; // Null-terminate the string
-    *name_size = size + 1; // Update the size to include the null terminator
-
+    if (!fixedStringCopy(name, name_size, type_name).has_value()) {
+        return fw_error_memory;
+    }
     return fw_error_success;
 }
 
@@ -401,13 +409,13 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_str(
 
     const auto& usbDevice = *device->usbDevicesIter;
 
-    auto copy_value = [&value, value_size](const std::string& str) {
-        if (value_size < str.size() + 1) {
-            return fw_error_memory; // Not enough space to copy the string
+    auto copy_value = [&value, &value_size](const std::string& str) {
+        uint32_t size = value_size;
+        if (fixedStringCopy(value, &size, str).has_value()) {
+            return fw_error_success;
+        } else {
+            return fw_error_memory;
         }
-        str.copy(value, value_size - 1);
-        value[value_size - 1] = '\0'; // Null-terminate the string
-        return fw_error_success;
     };
 
     switch (str_type) {

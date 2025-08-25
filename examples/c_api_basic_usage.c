@@ -12,6 +12,7 @@
 #include <cfwfinder.h>
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 fw_error_t print_usb_device(fw_freewili_device_t* device);
 
@@ -82,7 +83,7 @@ int main(void) {
         printf("  Serial: %s\n", serial);
         printf("  Type: %s\n", type);
         printf("  Standalone: %s\n", is_standalone ? "Yes" : "No");
-        printf("  Unique ID: %lu\n", unique_id);
+        printf("  Unique ID: %" PRIu64 "\n", unique_id);
 
         // Get USB device count
         uint32_t usb_count = 0;
