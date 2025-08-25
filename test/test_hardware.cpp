@@ -57,11 +57,11 @@ TEST(FwFinder, ExpectedHardware) {
             } else {
                 FAIL() << "Unexpected number of Mass Storage devices: " << massStorage.size();
             }
-        } else if (device.deviceType == Fw::DeviceType::DefCon2024Badge
-                   || device.deviceType == Fw::DeviceType::DefCon2025FwBadge
+        } else if (device.deviceType == Fw::DeviceType::DEFCON2024Badge
+                   || device.deviceType == Fw::DeviceType::DEFCON2025FwBadge
                    || device.deviceType == Fw::DeviceType::Winky)
         {
-            // Verify we found a DefCon badge device successfully.
+            // Verify we found a DEFCON badge device successfully.
             ASSERT_EQ(device.usbDevices.size(), 1) << "Expected exactly one USB device for badge";
             ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::SerialMain).size(), 1)
                 << "Expected one USB SerialMain device for badge";
@@ -71,7 +71,7 @@ TEST(FwFinder, ExpectedHardware) {
                 << "Expected no USB SerialDisplay device for badge";
         } else if (device.deviceType == Fw::DeviceType::Unknown) {
             FAIL() << "Found device with unknown type: " << device.name
-                   << " - expected FreeWili or DefCon badge type";
+                   << " - expected FreeWili or DEFCON badge type";
         } else {
             // For other types, we can just log the type
             std::cout << "Found device of type: " << Fw::getDeviceTypeName(device.deviceType)

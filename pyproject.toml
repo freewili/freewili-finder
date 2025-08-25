@@ -8,8 +8,8 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyfwfinder"
-version = "0.3.0"
-description = "An example minimal project that compiles bindings using nanobind and scikit-build"
+version = "0.4.0"
+description = "Python API to find Free-WiLi devices"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [{ name = "David Rebbe", email = "drebbe@intrepidcs.com" }]

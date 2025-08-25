@@ -31,7 +31,33 @@ int main() {
             std::cout << "Device " << (i + 1) << ": " << device.name << std::endl;
             std::cout << "  Type: " << Fw::getDeviceTypeName(device.deviceType) << std::endl;
             std::cout << "  Serial: " << device.serial << std::endl;
+            std::cout << "  Unique ID: " << device.uniqueID << std::endl;
             std::cout << "  Total USB Devices: " << device.usbDevices.size() << std::endl;
+
+            if (auto main = device.getMainUSBDevice(); main.has_value()) {
+                std::cout << "  Main USB Device: " << main->name << std::endl;
+                std::cout << "    Location: " << main->location << std::endl;
+            } else {
+                std::cout << "  Main USB Device: " << main.error() << std::endl;
+            }
+            if (auto display = device.getDisplayUSBDevice(); display.has_value()) {
+                std::cout << "  Display USB Device: " << display->name << std::endl;
+                std::cout << "    Location: " << display->location << std::endl;
+            } else {
+                std::cout << "  Display USB Device: " << display.error() << std::endl;
+            }
+            if (auto fpga = device.getFPGAUSBDevice(); fpga.has_value()) {
+                std::cout << "  FPGA USB Device: " << fpga->name << std::endl;
+                std::cout << "    Location: " << fpga->location << std::endl;
+            } else {
+                std::cout << "  FPGA USB Device: " << fpga.error() << std::endl;
+            }
+            if (auto hub = device.getHubUSBDevice(); hub.has_value()) {
+                std::cout << "  Hub USB Device: " << hub->name << std::endl;
+                std::cout << "    Location: " << hub->location << std::endl;
+            } else {
+                std::cout << "  Hub USB Device: " << hub.error() << std::endl;
+            }
 
             // Show different types of USB devices
             std::cout << "  USB Devices:" << std::endl;

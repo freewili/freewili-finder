@@ -36,9 +36,9 @@ const uint16_t USB_PID_FW_ESP32_SERIAL = 0xEA60;
 
 /// FreeWili Winky Product ID
 const uint16_t USB_PID_FW_WINKY = 0x2056;
-/// DefCon 2024 Badge Product ID
+/// DEFCON 2024 Badge Product ID
 const uint16_t USB_PID_FW_DEFCON_2024 = 0x2057;
-/// DefCon 2025 FreeWili Badge Product ID
+/// DEFCON 2025 FreeWili Badge Product ID
 const uint16_t USB_PID_FW_DEFCON_BADGE_2025 = 0x2058;
 
 static std::map<uint16_t, std::vector<uint16_t>> WhitelistVIDPID = {
