@@ -47,12 +47,12 @@ TEST(FwFinder, getDeviceTypeName) {
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::Unknown).c_str(), "Unknown");
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::FreeWili).c_str(), "Free-WiLi");
     ASSERT_STREQ(
-        Fw::getDeviceTypeName(Fw::DeviceType::DefCon2024Badge).c_str(),
-        "DefCon 2024 Badge"
+        Fw::getDeviceTypeName(Fw::DeviceType::DEFCON2024Badge).c_str(),
+        "DEFCON 2024 Badge"
     );
     ASSERT_STREQ(
-        Fw::getDeviceTypeName(Fw::DeviceType::DefCon2025FwBadge).c_str(),
-        "DefCon 2025 Badge"
+        Fw::getDeviceTypeName(Fw::DeviceType::DEFCON2025FwBadge).c_str(),
+        "DEFCON 2025 Badge"
     );
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::UF2).c_str(), "UF2");
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::Winky).c_str(), "Winky");
@@ -166,7 +166,7 @@ TEST(FwFinder, generateUniqueID) {
 
 /**
  * @brief Test fixture class for creating various FreeWiliDevice configurations
- * 
+ *
  * This class provides factory methods to create FreeWiliDevice instances with
  * different USB device configurations for comprehensive testing.
  */

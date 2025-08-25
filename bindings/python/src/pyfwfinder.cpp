@@ -38,8 +38,8 @@ NB_MODULE(pyfwfinder, m) {
     nb::enum_<Fw::DeviceType>(m, "DeviceType")
         .value("Unknown", Fw::DeviceType::Unknown)
         .value("FreeWili", Fw::DeviceType::FreeWili)
-        .value("DefCon2024Badge", Fw::DeviceType::DefCon2024Badge)
-        .value("DefCon2025FwBadge", Fw::DeviceType::DefCon2025FwBadge)
+        .value("DEFCON2024Badge", Fw::DeviceType::DEFCON2024Badge)
+        .value("DEFCON2025FwBadge", Fw::DeviceType::DEFCON2025FwBadge)
         .value("Winky", Fw::DeviceType::Winky)
         .value("UF2", Fw::DeviceType::UF2)
         .export_values();
@@ -92,10 +92,8 @@ NB_MODULE(pyfwfinder, m) {
         )
         .def(
             "get_usb_devices",
-            [](const Fw::FreeWiliDevice& self,
-               const std::vector<Fw::USBDeviceType>& usbDeviceTypes) {
-                return self.getUSBDevices(usbDeviceTypes);
-            }
+            [](const Fw::FreeWiliDevice& self, const std::vector<Fw::USBDeviceType>& usbDeviceTypes
+            ) { return self.getUSBDevices(usbDeviceTypes); }
         )
         .def(
             "get_main_usb_device",

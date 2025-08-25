@@ -63,10 +63,10 @@ auto Fw::getDeviceTypeName(Fw::DeviceType type) -> std::string {
     switch (type) {
         case Fw::DeviceType::FreeWili:
             return "Free-WiLi";
-        case Fw::DeviceType::DefCon2024Badge:
-            return "DefCon 2024 Badge";
-        case Fw::DeviceType::DefCon2025FwBadge:
-            return "DefCon 2025 Badge";
+        case Fw::DeviceType::DEFCON2024Badge:
+            return "DEFCON 2024 Badge";
+        case Fw::DeviceType::DEFCON2025FwBadge:
+            return "DEFCON 2025 Badge";
         case Fw::DeviceType::UF2:
             return "UF2";
         case Fw::DeviceType::Winky:
@@ -131,9 +131,9 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
         if (Fw::isStandAloneDevice(device.vid, device.pid)) {
             isStandaloneDevice = true;
             if (device.pid == Fw::USB_PID_FW_DEFCON_2024) {
-                deviceType = Fw::DeviceType::DefCon2024Badge;
+                deviceType = Fw::DeviceType::DEFCON2024Badge;
             } else if (device.pid == Fw::USB_PID_FW_DEFCON_BADGE_2025) {
-                deviceType = Fw::DeviceType::DefCon2025FwBadge;
+                deviceType = Fw::DeviceType::DEFCON2025FwBadge;
             } else if (device.pid == Fw::USB_PID_FW_WINKY) {
                 deviceType = Fw::DeviceType::Winky;
             } else if (device.pid == Fw::USB_PID_FW_RPI_2040_UF2_PID

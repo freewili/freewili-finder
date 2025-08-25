@@ -9,12 +9,12 @@ namespace Fw {
 
 /**
  * @brief Builder class for constructing FreeWiliDevice objects with validation.
- * 
+ *
  * The FreeWiliDeviceBuilder provides a fluent interface for creating FreeWiliDevice
  * objects with proper validation of required fields. All parameters are optional
  * during construction, but validation occurs during the build() call to ensure
  * all required fields are set.
- * 
+ *
  * @code{.cpp}
  * auto device = Fw::FreeWiliDevice::builder()
  *     .setDeviceType(Fw::DeviceType::FreeWili)
@@ -23,7 +23,7 @@ namespace Fw {
  *     .setUniqueID(Fw::generateUniqueID(0, 0))
  *     .setUSBDevices(std::move(usbDevices))
  *     .build();
- * 
+ *
  * if (device.has_value()) {
  *     // Use device.value()
  * } else {
@@ -48,15 +48,15 @@ public:
 
     /**
      * @brief Sets the device type for the FreeWiliDevice being built.
-     * 
-     * @param type The type of device (FreeWili, DefCon badge, etc.)
+     *
+     * @param type The type of device (FreeWili, DEFCON badge, etc.)
      * @return Reference to this builder for method chaining
      */
     FreeWiliDeviceBuilder& setDeviceType(Fw::DeviceType type);
 
     /**
      * @brief Sets the name for the FreeWiliDevice being built.
-     * 
+     *
      * @param name The human-readable name of the device
      * @return Reference to this builder for method chaining
      */
@@ -64,7 +64,7 @@ public:
 
     /**
      * @brief Sets the serial number for the FreeWiliDevice being built.
-     * 
+     *
      * @param serial The unique serial number of the device
      * @return Reference to this builder for method chaining
      */
@@ -72,7 +72,7 @@ public:
 
     /**
      * @brief Sets the unique ID for the FreeWiliDevice being built.
-     * 
+     *
      * @param id The unique 64-bit identifier for the device
      * @return Reference to this builder for method chaining
      */
@@ -80,14 +80,14 @@ public:
 
     /**
      * @brief Sets the standalone status for the FreeWiliDevice being built.
-     * 
+     *
      * @param standalone True if the device is standalone, false otherwise
      * @return Reference to this builder for method chaining
      */
     FreeWiliDeviceBuilder& setStandalone(bool standalone);
     /**
      * @brief Sets the USB devices list for the FreeWiliDevice being built (copy).
-     * 
+     *
      * @param devices Vector of USB devices associated with this FreeWili device
      * @return Reference to this builder for method chaining
      */
@@ -95,7 +95,7 @@ public:
 
     /**
      * @brief Sets the USB devices list for the FreeWiliDevice being built (move).
-     * 
+     *
      * @param devices Vector of USB devices associated with this FreeWili device
      * @return Reference to this builder for method chaining
      */
@@ -103,11 +103,11 @@ public:
 
     /**
      * @brief Builds and validates the FreeWiliDevice.
-     * 
+     *
      * Validates that all required fields have been set and constructs a
      * FreeWiliDevice object. If any required field is missing, returns
      * an error describing which field is missing.
-     * 
+     *
      * @return std::expected containing either a valid FreeWiliDevice or an error message
      */
     std::expected<FreeWiliDevice, std::string> build();
@@ -115,8 +115,8 @@ public:
 private:
     /**
      * @brief Validates that all required fields have been set.
-     * 
-     * @return std::optional containing an error message if validation fails, 
+     *
+     * @return std::optional containing an error message if validation fails,
      *         or std::nullopt if all fields are valid
      */
     std::optional<std::string> validate() const;

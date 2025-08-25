@@ -172,10 +172,10 @@ fw_device_get_type_name(fw_devicetype_t device_type, char* const name, uint32_t*
             type_name = Fw::getDeviceTypeName(Fw::DeviceType::FreeWili);
             break;
         case fw_devicetype_defcon2024badge:
-            type_name = Fw::getDeviceTypeName(Fw::DeviceType::DefCon2024Badge);
+            type_name = Fw::getDeviceTypeName(Fw::DeviceType::DEFCON2024Badge);
             break;
         case fw_devicetype_defcon2025fwbadge:
-            type_name = Fw::getDeviceTypeName(Fw::DeviceType::DefCon2025FwBadge);
+            type_name = Fw::getDeviceTypeName(Fw::DeviceType::DEFCON2025FwBadge);
             break;
         case fw_devicetype_uf2:
             type_name = Fw::getDeviceTypeName(Fw::DeviceType::UF2);

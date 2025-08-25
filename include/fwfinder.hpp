@@ -21,8 +21,8 @@ enum class USBHubPortLocation : uint32_t {
 enum class DeviceType : uint32_t {
     Unknown = 0,
     FreeWili = 1,
-    DefCon2024Badge = 2,
-    DefCon2025FwBadge = 3,
+    DEFCON2024Badge = 2,
+    DEFCON2025FwBadge = 3,
     UF2 = 4,
     Winky = 5,
 };
@@ -131,7 +131,7 @@ struct FreeWiliDevice {
 
     /**
      * @brief Creates a new FreeWiliDeviceBuilder for constructing FreeWiliDevice objects.
-     * 
+     *
      * @return A new FreeWiliDeviceBuilder instance for fluent construction
      */
     static FreeWiliDeviceBuilder builder();

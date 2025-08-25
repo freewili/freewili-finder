@@ -274,14 +274,7 @@ auto _getDevicePropertyMultiSz(DEVINST devInst, const DEVPROPKEY key) noexcept
         return std::unexpected(ss.str());
     }
     std::vector<BYTE> buffer(size + sizeof(TCHAR));
-    if (auto res = CM_Get_DevNode_Property(
-            devInst,
-            &key,
-            &propertyType,
-            buffer.data(),
-            &size,
-            0
-        );
+    if (auto res = CM_Get_DevNode_Property(devInst, &key, &propertyType, buffer.data(), &size, 0);
         res != CR_SUCCESS)
     {
         std::stringstream ss;
@@ -447,7 +440,7 @@ struct EnumeratedDevice {
     // Packed location derived from parsed USB port chain (up to 4 levels, 1 byte each).
     // If fewer than 4 levels, remaining bytes are 0. Root-most port is stored in the most
     // significant byte to keep lexical ordering by depth.
-    uint32_t location {0};
+    uint32_t location { 0 };
     uint16_t vid;
     uint16_t pid;
     std::string serial;
@@ -604,10 +597,8 @@ auto getEnumeratedDevices() noexcept
             enumeratedDevice->containerId = result.value();
         }
         // Location Paths -> Port Chain
-        if (auto locPaths = _getDevicePropertyMultiSz(
-                devInfoData.DevInst,
-                DEVPKEY_Device_LocationPaths
-            );
+        if (auto locPaths =
+                _getDevicePropertyMultiSz(devInfoData.DevInst, DEVPKEY_Device_LocationPaths);
             locPaths.has_value())
         {
             auto chain = _extractUSBPortChainFromLocationPaths(locPaths.value());
@@ -861,8 +852,6 @@ auto getHubEnumeratedDevices(
         // This grabs all VID/PID devices we care about for now.
         auto usbInstId = getUSBInstanceID(instanceId);
         if (!usbInstId.has_value()) {
-            // TODO
-            //std::println("\t\tInvalid VID/PID: {} {}", usbInstId.error(), instanceID);
             continue;
         } else if (!Fw::is_vid_pid_whitelisted(usbInstId.value().vid, usbInstId.value().pid)) {
             continue;
@@ -1013,14 +1002,11 @@ auto getHubEnumeratedDevices(
                             "Failed to get enumeratedDevice by driver key. Value is null"
                         );
                     }
-                    //enumeratedDevice->driverKey = name;
                     if (auto serialPort =
                             findSerialPort(allDeviceInfo, enumeratedDevice, devicesByInstanceId, 0);
                         serialPort.has_value())
                     {
                         enumeratedDevice->port = serialPort.value();
-                    } else {
-                        // TODO: std::cerr << serialPort.error();
                     }
                     if (auto volumePaths = findVolumePaths(
                             allDeviceInfo,
@@ -1033,8 +1019,6 @@ auto getHubEnumeratedDevices(
                         volumePaths.has_value())
                     {
                         enumeratedDevice->driveLetters = volumePaths.value();
-                    } else {
-                        // TODO: std::cerr << serialPort.error();
                     }
 
                     enumeratedDevice->location = i;
@@ -1088,8 +1072,8 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
                 .name = hub.first->busDescription + " (" + hub.first->description + ")",
                 .serial = hub.first->serial,
                 .location = hub.first->location,
-                .paths = std::nullopt, // TODO
-                .port = "", // TODO
+                .paths = std::nullopt,
+                .port = "",
                 ._raw = hub.first->instanceId,
             }
         );
@@ -1102,7 +1086,7 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
                     .name = child->busDescription + " (" + child->description + ")",
                     .serial = child->serial,
                     .location = child->location,
-                    .paths = child->driveLetters, // TODO
+                    .paths = child->driveLetters,
                     .port = child->port,
                     ._raw = child->instanceId,
                 }
@@ -1184,7 +1168,7 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
                 .name = device.second->busDescription + " (" + device.second->description + ")",
                 .serial = device.second->serial,
                 .location = device.second->location,
-                .paths = device.second->driveLetters, // TODO
+                .paths = device.second->driveLetters,
                 .port = device.second->port,
                 ._raw = device.second->instanceId,
             }
@@ -1193,7 +1177,6 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
             fwDevices.push_back(result.value());
         } else {
             return std::unexpected(result.error());
-            // TODO
         }
     }
     // Sort the devices by serial number
