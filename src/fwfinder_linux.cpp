@@ -128,6 +128,47 @@ struct SerialInfo {
     std::string serial;
 };
 
+auto usbPortChainFromUdevDevice(udev_device* dev) -> std::vector<uint32_t> {
+    if (!dev) {
+        return {};
+    }
+
+    std::vector<uint32_t> portChain;
+    
+    // Start with the current device and walk up the tree
+    udev_device* current = dev;
+    
+    while (current) {
+        std::string sysnum;
+        if (const char* value = udev_device_get_sysnum(current); value) {
+            sysnum = value;
+        }
+        if (sysnum.empty()) {
+            break;
+        }
+        
+        try {
+            uint32_t num = static_cast<uint32_t>(std::stoul(sysnum));
+            portChain.push_back(num);
+        } catch (...) {
+            break;
+        }
+
+        udev_device* parent = udev_device_get_parent_with_subsystem_devtype(current, "usb", "usb_device");
+        if (!parent) {
+            break;
+        }
+        
+        // Move up to the parent for next iteration
+        current = parent;
+    }
+    
+    // Reverse the chain so it goes from root to leaf
+    std::reverse(portChain.begin(), portChain.end());
+    
+    return portChain;
+}
+
 auto _listSerialPorts() noexcept -> std::vector<SerialInfo> {
     std::vector<SerialInfo> foundSerials;
     struct udev* udev = udev_new();
@@ -209,6 +250,7 @@ auto _createUSBDeviceFromUDevDevice(
     const char* _sysnum = udev_device_get_sysnum(dev);
     std::string sysnum = _sysnum ? _sysnum : "";
     uint32_t location = string_to_int<uint32_t>(sysnum, 10).value_or(0);
+    std::vector<uint32_t> portChain = usbPortChainFromUdevDevice(dev);
 
     // Build device name
     std::string deviceName;
@@ -227,6 +269,7 @@ auto _createUSBDeviceFromUDevDevice(
         .name = deviceName,
         .serial = serial,
         .location = static_cast<uint8_t>(location),
+        .portChain = portChain,
         .paths = diskInfo.has_value()
             ? std::optional<std::vector<std::string>>(diskInfo->get().mountPoints)
             : std::nullopt,
@@ -294,25 +337,7 @@ auto _find_all_standalone(
         std::string sysnum = _sysnum ? _sysnum : "";
         uint32_t deviceLocation = string_to_int<uint32_t>(sysnum, 10).value_or(0);
         std::string devPath = udev_device_get_syspath(dev);
-
-        // Get parent information
-        uint32_t parentLocation = 0;
-        std::string parentManufacturer, parentProductName, parentSerial, parentDevPath;
-        uint16_t parentVid = 0, parentPid = 0;
-
-        if (parent) {
-            parentManufacturer = get_device_property(parent, "manufacturer");
-            parentProductName = get_device_property(parent, "product");
-            parentSerial = get_device_property(parent, "serial");
-            parentDevPath = udev_device_get_syspath(parent);
-            std::string parentIdVendor = get_device_property(parent, "idVendor");
-            std::string parentIdProduct = get_device_property(parent, "idProduct");
-            parentVid = string_to_int<uint16_t>(parentIdVendor, 16).value_or(0);
-            parentPid = string_to_int<uint16_t>(parentIdProduct, 16).value_or(0);
-            const char* _parentSysnum = udev_device_get_sysnum(parent);
-            std::string parentSysnum = _parentSysnum ? _parentSysnum : "";
-            parentLocation = string_to_int<uint32_t>(parentSysnum, 10).value_or(0);
-        }
+        std::vector<uint32_t> portChain = usbPortChainFromUdevDevice(dev);
 
         // Find associated disk
         auto diskIter = std::find_if(disks.begin(), disks.end(), [&](const DiskInfo& disk) {
@@ -337,6 +362,7 @@ auto _find_all_standalone(
                 .name = manufacturer.empty() ? productName : manufacturer + " " + productName,
                 .serial = serial,
                 .location = static_cast<uint8_t>(deviceLocation),
+                .portChain = portChain,
                 .paths = diskIter == disks.end()
                     ? std::nullopt
                     : std::optional<std::vector<std::string>>(diskIter->mountPoints),
@@ -347,26 +373,7 @@ auto _find_all_standalone(
             }
         );
 
-        // Add the parent USB device at the end
-        if (parent && parentVid != 0 && parentPid != 0) {
-            devices.push_back(
-                Fw::USBDevice {
-                    .kind = Fw::getUSBDeviceTypeFrom(parentVid, parentPid),
-                    .vid = parentVid,
-                    .pid = parentPid,
-                    .name = parentManufacturer.empty()
-                        ? parentProductName
-                        : parentManufacturer + " " + parentProductName,
-                    .serial = parentSerial,
-                    .location = static_cast<uint8_t>(parentLocation),
-                    .paths = std::nullopt,
-                    .port = std::nullopt,
-                    ._raw = parentDevPath,
-                }
-            );
-        }
-
-        // Create FreeWili device from USB devices with UniqueID
+        // Create FreeWili device from USB devices
         if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
             auto fwDevice = std::move(result.value());
             fwDevices.push_back(std::move(fwDevice));
@@ -438,6 +445,7 @@ auto _find_all_freewili(
             uint16_t vid = string_to_int<uint16_t>(idVendor, 16).value_or(0);
             uint16_t pid = string_to_int<uint16_t>(idProduct, 16).value_or(0);
             uint32_t location = string_to_int<uint32_t>(sysnum, 10).value_or(0);
+            std::vector<uint32_t> portChain = usbPortChainFromUdevDevice(dev);
             if (vid == 0 || pid == 0) {
                 udev_device_unref(dev);
                 continue;
@@ -457,6 +465,7 @@ auto _find_all_freewili(
                     .name = manufacturer + " " + productName,
                     .serial = serial,
                     .location = static_cast<uint8_t>(location),
+                    .portChain = portChain,
                     .paths = diskPathIter == disks.end()
                         ? std::nullopt
                         : std::optional<std::vector<std::string>>(diskPathIter->mountPoints),
@@ -507,6 +516,7 @@ auto _find_all_freewili(
         uint16_t vid = string_to_int<uint16_t>(idVendor, 16).value_or(0);
         uint16_t pid = string_to_int<uint16_t>(idProduct, 16).value_or(0);
         uint32_t location = string_to_int<uint32_t>(sysnum, 10).value_or(0);
+        std::vector<uint32_t> portChain = usbPortChainFromUdevDevice(dev);
         if (idVendor == targetHubVid && idProduct == targetHubPid) {
             std::string hubSysPath = udev_device_get_syspath(dev);
             auto hubDevice = USBDevice {
@@ -516,6 +526,7 @@ auto _find_all_freewili(
                 .name = productName,
                 .serial = serial,
                 .location = static_cast<uint8_t>(location),
+                .portChain = portChain,
                 .paths = std::nullopt,
                 .port = std::nullopt,
                 ._raw = hubSysPath,
