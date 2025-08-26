@@ -298,19 +298,15 @@ auto _getDevicePropertyMultiSz(DEVINST devInst, const DEVPROPKEY key) noexcept
 // contains USB(x) segments. Example path fragment:
 // "PCIROOT(0)#PCI(1400)#USBROOT(0)#USB(3)#USB(2)#USB(4)" -> {3,2,4}
 auto _extractUSBPortChainFromLocationPaths(const std::vector<std::string>& paths) noexcept
-    -> std::vector<uint8_t> {
+    -> std::vector<uint32_t> {
     std::regex usbRegex(R"(USB\((\d+)\))", std::regex_constants::icase);
     for (auto const& p: paths) {
         std::sregex_iterator it(p.begin(), p.end(), usbRegex), end;
-        std::vector<uint8_t> chain;
+        std::vector<uint32_t> chain;
         for (; it != end; ++it) {
             try {
                 auto v = static_cast<uint32_t>(std::stoul((*it)[1].str()));
-                if (v <= 255) {
-                    chain.push_back(static_cast<uint8_t>(v));
-                } else {
-                    // Skip values that don't fit in a byte
-                }
+                chain.push_back(v);
             } catch (...) {
                 // Ignore bad conversions
             }
@@ -448,7 +444,7 @@ struct EnumeratedDevice {
     std::optional<std::vector<std::string>> driveLetters;
     // Full USB port chain as reported by DEVPKEY_Device_LocationPaths (e.g. USB(1)->USB(3)->USB(2)).
     // Stored without packing so future APIs can expose full depth without ambiguity.
-    std::vector<uint8_t> portChain;
+    std::vector<uint32_t> usbPortChain;
 };
 
 typedef std::unordered_map<std::string, std::shared_ptr<EnumeratedDevice>> EnumeratedDevices;
@@ -601,19 +597,8 @@ auto getEnumeratedDevices() noexcept
                 _getDevicePropertyMultiSz(devInfoData.DevInst, DEVPKEY_Device_LocationPaths);
             locPaths.has_value())
         {
-            auto chain = _extractUSBPortChainFromLocationPaths(locPaths.value());
-            enumeratedDevice->portChain = chain;
-            // Pack first up to 4 entries into uint32 for legacy location field
-            uint32_t packed = 0;
-            size_t depth = std::min<size_t>(4, chain.size());
-            for (size_t idx = 0; idx < depth; ++idx) {
-                // Root-most should end up in most significant byte -> shift remaining slots
-                size_t shiftFromMSB = (3 - idx) * 8; // idx 0 -> 24, 1 -> 16 ...
-                packed |= static_cast<uint32_t>(chain[idx]) << shiftFromMSB;
-            }
-            enumeratedDevice->location = packed;
-        } else {
-            // Ignore failures; location remains 0
+            enumeratedDevice->usbPortChain =
+                _extractUSBPortChainFromLocationPaths(locPaths.value());
         }
     }
 
@@ -1072,6 +1057,7 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
                 .name = hub.first->busDescription + " (" + hub.first->description + ")",
                 .serial = hub.first->serial,
                 .location = hub.first->location,
+                .portChain = hub.first->usbPortChain,
                 .paths = std::nullopt,
                 .port = "",
                 ._raw = hub.first->instanceId,
@@ -1168,6 +1154,7 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
                 .name = device.second->busDescription + " (" + device.second->description + ")",
                 .serial = device.second->serial,
                 .location = device.second->location,
+                .portChain = device.second->usbPortChain,
                 .paths = device.second->driveLetters,
                 .port = device.second->port,
                 ._raw = device.second->instanceId,

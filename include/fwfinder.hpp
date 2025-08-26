@@ -71,6 +71,9 @@ struct USBDevice {
     /// USB physical location, 1 = first port
     uint32_t location;
 
+    /// USB port chain
+    std::vector<uint32_t> portChain;
+
     /// USB Mass storage Path - This is only valid when kind is MassStorage
     std::optional<std::vector<std::string>> paths;
     /// Serial Port Path - This is only valid when kind is Serial
@@ -184,25 +187,5 @@ typedef std::vector<FreeWiliDevice> FreeWiliDevices;
    * }
    */
 auto find_all() noexcept -> std::expected<FreeWiliDevices, std::string>;
-
-/**
- * @brief Generates a unique 64-bit ID from parent and device USB locations.
- *
- * Creates a hierarchical unique identifier by combining the parent USB controller
- * location in the upper 32 bits and the device's own USB location in the lower
- * 32 bits. This allows for consistent device identification across USB topology
- * changes while maintaining hierarchical relationships.
- *
- * @param parentLocation The USB location of the parent device (upper 32 bits)
- * @param deviceLocation The USB location of the device itself (lower 32 bits)
- * @return A 64-bit unique identifier combining both locations
- *
- * @code{.cpp}
- * // Example: Parent at location 2, device at location 5
- * uint64_t uniqueId = Fw::generateUniqueID(2, 5);
- * // Result: 0x0000000200000005
- * @endcode
- */
-auto generateUniqueID(uint32_t parentLocation, uint32_t deviceLocation) -> uint64_t;
 
 }; // namespace Fw

@@ -6,6 +6,24 @@
 #include <string>
 #include <algorithm>
 #include <sstream>
+#include <cassert>
+
+auto _generateUniqueIDFromUSBPortChain(const std::vector<uint32_t>& usbPortChain) -> uint64_t {
+    assert(usbPortChain.size() != 0 && "USB port chain cannot be empty");
+    assert(
+        usbPortChain.size() <= std::numeric_limits<uint64_t>::digits / 32
+        && "USB port chain too deep"
+    );
+
+    uint64_t uniqueID = 0;
+    const auto bitsPerPort = 6;
+    auto i = 0;
+    for (const uint32_t& port: usbPortChain) {
+        uniqueID |= (port & 0x3F) << (bitsPerPort * i++);
+    }
+
+    return uniqueID;
+}
 
 bool Fw::isStandAloneDevice(uint16_t vid, uint16_t pid) {
     // Check if the VID and PID match any known standalone devices
@@ -122,8 +140,9 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
     -> std::expected<Fw::FreeWiliDevice, std::string> {
     std::string name;
     std::string serial;
-    uint64_t uniqueID = std::numeric_limits<uint64_t>::max();
+    uint64_t uniqueID = std::numeric_limits<uint64_t>::min();
     Fw::DeviceType deviceType = Fw::DeviceType::Unknown;
+    std::vector<uint32_t> usbPortChain;
 
     // Check if this is a standalone device (e.g., Winky)
     bool isStandaloneDevice = false;
@@ -145,8 +164,7 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
             }
             name = device.name;
             serial = device.serial;
-            // TODO: Parent should be the parent USB controller location.
-            uniqueID = Fw::generateUniqueID(std::numeric_limits<uint32_t>::max(), device.location);
+            uniqueID = _generateUniqueIDFromUSBPortChain(device.portChain);
             break;
         }
     }
@@ -179,7 +197,7 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
             );
             it != sortedUsbDevices.end())
         {
-            uniqueID = Fw::generateUniqueID(std::numeric_limits<uint32_t>::max(), it->location);
+            uniqueID = _generateUniqueIDFromUSBPortChain(it->portChain);
         }
 
         // Sort the USB devices
@@ -205,12 +223,6 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
         .setStandalone(isStandaloneDevice)
         .setUSBDevices(std::move(sortedUsbDevices))
         .build();
-}
-
-auto Fw::generateUniqueID(uint32_t parentLocation, uint32_t deviceLocation) -> uint64_t {
-    // Generate UniqueID: upper bytes = parent location, lower bytes = device location
-    uint64_t uniqueID = (static_cast<uint64_t>(parentLocation) << 32) | deviceLocation;
-    return uniqueID;
 }
 
 Fw::FreeWiliDeviceBuilder Fw::FreeWiliDevice::builder() {
