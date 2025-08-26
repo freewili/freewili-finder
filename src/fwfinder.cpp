@@ -9,14 +9,17 @@
 #include <cassert>
 
 auto _generateUniqueIDFromUSBPortChain(const std::vector<uint32_t>& usbPortChain) -> uint64_t {
+    // Limitation: We can do 10 hubs deep and 64 ports per hub with 6 bits allocated per port.
+    // Currently USB 3.0 controller max out at 64 devices. The spec states 128 per controller,
+    // but I have yet to see this in practice as of September 2025.
+    const auto bitsPerPort = 6; // Make sure the mask below matches this
     assert(usbPortChain.size() != 0 && "USB port chain cannot be empty");
     assert(
-        usbPortChain.size() <= std::numeric_limits<uint64_t>::digits / 32
+        usbPortChain.size() <= std::numeric_limits<uint64_t>::digits / bitsPerPort
         && "USB port chain too deep"
     );
 
     uint64_t uniqueID = 0;
-    const auto bitsPerPort = 6;
     auto i = 0;
     for (const uint32_t& port: usbPortChain) {
         uniqueID |= (port & 0x3F) << (bitsPerPort * i++);
