@@ -232,6 +232,7 @@ public:
             .setName("Test FreeWili with Serials")
             .setSerial("FTDI001") // Use FTDI serial as device serial
             .setUniqueID(1)
+            .setStandalone(false)
             .setUSBDevices(std::move(usbDevices))
             .build();
     }
@@ -250,6 +251,7 @@ public:
             .setName("Test FreeWili with Mass Storage")
             .setSerial("FTDI001")
             .setUniqueID(2)
+            .setStandalone(false)
             .setUSBDevices(std::move(usbDevices))
             .build();
     }
@@ -267,6 +269,7 @@ public:
             .setName("Test FreeWili without FTDI - Mass Storage")
             .setSerial("HUB001") // Use Hub serial since no FTDI
             .setUniqueID(3)
+            .setStandalone(false)
             .setUSBDevices(std::move(usbDevices))
             .build();
     }
@@ -284,6 +287,7 @@ public:
             .setName("Test FreeWili without FTDI - Serials")
             .setSerial("HUB001") // Use Hub serial since no FTDI
             .setUniqueID(4)
+            .setStandalone(false)
             .setUSBDevices(std::move(usbDevices))
             .build();
     }
@@ -299,6 +303,7 @@ public:
             .setName("Test Minimal FreeWili")
             .setSerial("FTDI001")
             .setUniqueID(5)
+            .setStandalone(false)
             .setUSBDevices(std::move(usbDevices))
             .build();
     }
