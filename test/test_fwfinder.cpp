@@ -131,7 +131,8 @@ public:
                                .pid = Fw::USB_PID_FW_HUB,
                                .name = "Free-WiLi Hub",
                                .serial = "HUB001",
-                               .location = 0, // Hub is at the root level, not on a specific port
+                               .location = 3, // Hub is at the root level, not on a specific port
+                               .portChain = { 1, 2, 3 },
                                .paths = std::nullopt,
                                .port = std::nullopt,
                                ._raw = "/sys/devices/hub" };
@@ -146,7 +147,8 @@ public:
                                .pid = Fw::USB_PID_FW_FTDI,
                                .name = "Free-WiLi FTDI",
                                .serial = "FTDI001",
-                               .location = static_cast<uint32_t>(Fw::USBHubPortLocation::FPGA),
+                               .location = 3,
+                               .portChain = { 1, 2, 3 },
                                .paths = std::nullopt,
                                .port = std::nullopt,
                                ._raw = "/sys/devices/ftdi" };
@@ -161,7 +163,8 @@ public:
                                .pid = Fw::USB_PID_FW_MAIN_CDC_PID,
                                .name = "Free-WiLi Main Serial",
                                .serial = "MAIN001",
-                               .location = static_cast<uint32_t>(Fw::USBHubPortLocation::Main),
+                               .location = 1,
+                               .portChain = { 1, 2, 1 },
                                .paths = std::nullopt,
                                .port = std::string("/dev/ttyACM0"),
                                ._raw = "/sys/devices/main_serial" };
@@ -176,7 +179,8 @@ public:
                                .pid = Fw::USB_PID_FW_DISPLAY_CDC_PID,
                                .name = "Free-WiLi Display Serial",
                                .serial = "DISP001",
-                               .location = static_cast<uint32_t>(Fw::USBHubPortLocation::Display),
+                               .location = 2,
+                               .portChain = { 1, 2, 2 },
                                .paths = std::nullopt,
                                .port = std::string("/dev/ttyACM1"),
                                ._raw = "/sys/devices/display_serial" };
@@ -191,7 +195,8 @@ public:
                                .pid = Fw::USB_PID_FW_RPI_2040_UF2_PID,
                                .name = "Free-WiLi Main Storage",
                                .serial = "MASS001",
-                               .location = static_cast<uint32_t>(Fw::USBHubPortLocation::Main),
+                               .location = 1,
+                               .portChain = { 1, 2, 1 },
                                .paths = std::vector<std::string> { "/mnt/freewili_main" },
                                .port = std::nullopt,
                                ._raw = "/sys/devices/main_storage" };
@@ -206,7 +211,8 @@ public:
                                .pid = Fw::USB_PID_FW_RPI_2040_UF2_PID,
                                .name = "Free-WiLi Display Storage",
                                .serial = "MASS002",
-                               .location = static_cast<uint32_t>(Fw::USBHubPortLocation::Display),
+                               .location = 2,
+                               .portChain = { 1, 2, 2 },
                                .paths = std::vector<std::string> { "/mnt/freewili_display" },
                                .port = std::nullopt,
                                ._raw = "/sys/devices/display_storage" };

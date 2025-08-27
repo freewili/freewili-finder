@@ -42,60 +42,94 @@ auto _toString(const char* value) noexcept -> std::string {
     return strValue;
 }
 
-// Extract USB port number from macOS locationID
+// Extract USB port number from macOS locationID following cyme project approach
 auto getUSBPortFromLocationID(uint32_t locationID) noexcept -> uint32_t {
-    // macOS locationID format is topology-dependent:
-    // Direct connection:    Hub=0x100000, children=0x110000, 0x120000, 0x130000
-    // External hub:         Hub=0x1110000, children=0x1111000, 0x1112000, 0x1113000
+    // macOS locationID format: 0xbbdddddd where:
+    // - bb = bus number in hex
+    // - dddddd = up to six levels for the tree, each digit represents position at that level
     // 
-    // For external hub children, the pattern is 0x11XY000 where:
-    // - Bits 16-19 (X) = hub identifier (always 1 for external hub)
-    // - Bits 12-15 (Y) = actual port number (1, 2, 3)
-    //
-    // For direct connection children, the pattern is 0x1X0000 where:
-    // - Bits 16-19 (X) = port number (1, 2, 3)
+    // Following the cyme project approach:
+    // Extract the tree positions and return the last (rightmost) non-zero port number
+    // which represents the port on the immediate parent hub/controller
     
-    uint32_t portCandidate1 = (locationID >> 16) & 0x0F;  // Bits 16-19
-    uint32_t portCandidate2 = (locationID >> 12) & 0x0F;  // Bits 12-15
+    // Extract the tree position digits (6 digits after bus)
+    std::vector<uint32_t> treePositions;
+    uint32_t locationDigits = locationID & 0x00FFFFFF; // Remove bus number
     
-    // Check if this looks like an external hub child device (0x11XY000 pattern)
-    if ((locationID & 0xFF0F000) != 0 && portCandidate1 == 1 && portCandidate2 != 0) {
-        // This is likely an external hub child - use bits 12-15 for port number
-        return portCandidate2;
+    // Extract each hex digit from right to left, but we want left to right order
+    for (int i = 20; i >= 0; i -= 4) { // 6 digits * 4 bits each = 24 bits
+        uint32_t digit = (locationDigits >> i) & 0x0F;
+        if (digit != 0) {
+            treePositions.push_back(digit);
+        }
     }
     
-    // For direct connections or hub devices, use bits 16-19
-    if (portCandidate1 != 0) {
-        return portCandidate1;
+    // The port number is the last (deepest) position in the tree
+    // This represents the actual port on the immediate parent hub
+    if (!treePositions.empty()) {
+        return treePositions.back();
     }
     
-    // For hub devices or when we can't extract port info, 
-    // use controller info to distinguish different physical USB ports
-    uint32_t controller = (locationID >> 24) & 0xFF;
-    uint32_t altController = (locationID >> 20) & 0x0F;
-    
-    // Return a reasonable identifier based on what we can extract
-    if (controller > 0) {
-        return controller + 1;
-    }
-    return altController + 1;
+    // Fallback: if we can't extract meaningful tree positions,
+    // this might be a root hub or special case
+    return 1;
 }
 
+// Extract USB port chain from macOS locationID following cyme project approach
+auto getUSBPortChainFromLocationID(uint32_t locationID) noexcept -> std::vector<uint32_t> {
+    // macOS locationID format: 0xbbdddddd where:
+    // - bb = bus number in hex  
+    // - dddddd = up to six levels for the tree, each digit represents position at that level
+    //
+    // Following the cyme project approach for building the full port chain:
+    // Extract each tree position digit from left to right to build the complete path
+    
+    std::vector<uint32_t> portChain;
+    
+    // Extract the tree position digits (6 digits after bus number)
+    uint32_t locationDigits = locationID & 0x00FFFFFF; // Remove bus number (top 8 bits)
+    
+    // Extract each hex digit from left to right (most significant to least significant)
+    // Each digit represents the port number at that level in the USB tree
+    for (int i = 20; i >= 0; i -= 4) { // 6 digits * 4 bits each = 24 bits, starting from left
+        uint32_t digit = (locationDigits >> i) & 0x0F;
+        if (digit != 0) {
+            portChain.push_back(digit);
+        }
+    }
+    
+    // If we couldn't extract any meaningful port chain, create a minimal one
+    // This can happen for root hubs or devices directly connected to controller
+    if (portChain.empty()) {
+        // Use the bus number as a fallback to ensure each device has a unique path
+        uint32_t busNumber = (locationID >> 24) & 0xFF;
+        if (busNumber > 0) {
+            portChain.push_back(busNumber);
+        } else {
+            portChain.push_back(1); // Default fallback
+        }
+    }
+    
+    return portChain;
+}
+
+template<typename T>
+requires std::is_integral_v<T>
 auto getPropertyAsInt(io_service_t& usbDevice, CFStringRef propertyName)
-    -> std::optional<uint32_t> {
-    uint32_t value = 0;
+    -> std::optional<T> {
+    uint64_t value = 0;
     if (auto res = (CFNumberRef
         )IORegistryEntryCreateCFProperty(usbDevice, propertyName, kCFAllocatorDefault, 0);
         !res)
     {
         return std::nullopt;
-    } else if (!CFNumberGetValue(res, kCFNumberSInt32Type, &value)) {
+    } else if (!CFNumberGetValue(res, kCFNumberSInt64Type, &value)) {
         CFRelease(res);
         return std::nullopt;
     } else {
         CFRelease(res);
     }
-    return value;
+    return static_cast<T>(value);
 }
 
 auto getPropertyAsStr(io_service_t& usbDevice, CFStringRef propertyName)
@@ -215,6 +249,8 @@ auto findStoragePah(io_object_t entry, int level) noexcept
                 FILE* fp = popen(ss.str().c_str(), "r");
                 if (fp) {
                     char mountPath[256] {};
+                    // TODO: The RP2350 UF2 bootloader can hang diskutil.
+                    // Seems to only happen when its been plugged in for a long time.
                     if (fgets(mountPath, sizeof(mountPath), fp)) {
                         mountPath[strcspn(mountPath, "\n")] = 0; // Trim newline
                         if (strlen(mountPath) > 0) {
@@ -293,11 +329,11 @@ static auto _find_all_fw_classic() noexcept
     // Find all FreeWili hubs first
     while ((usbDevice = IOIteratorNext(iter))) {
         uint16_t vid = 0;
-        if (auto result = getPropertyAsInt(usbDevice, CFSTR("idVendor")); result.has_value()) {
+        if (auto result = getPropertyAsInt<uint16_t>(usbDevice, CFSTR("idVendor")); result.has_value()) {
             vid = result.value();
         }
         uint16_t pid = 0;
-        if (auto result = getPropertyAsInt(usbDevice, CFSTR("idProduct")); result.has_value()) {
+        if (auto result = getPropertyAsInt<uint16_t>(usbDevice, CFSTR("idProduct")); result.has_value()) {
             pid = result.value();
         }
         
@@ -308,7 +344,7 @@ static auto _find_all_fw_classic() noexcept
         }
         
         uint32_t addr = 0;
-        if (auto result = getPropertyAsInt(usbDevice, CFSTR("locationID")); result.has_value()) {
+        if (auto result = getPropertyAsInt<uint32_t>(usbDevice, CFSTR("locationID")); result.has_value()) {
             addr = result.value();
         }
 
@@ -332,6 +368,7 @@ static auto _find_all_fw_classic() noexcept
             .name = manuName + " " + productName,
             .serial = serial,
             .location = getUSBPortFromLocationID(addr),
+            .portChain = getUSBPortChainFromLocationID(addr),
             .paths = std::nullopt,
             .port = std::nullopt,
             ._raw = ""
@@ -344,18 +381,18 @@ static auto _find_all_fw_classic() noexcept
         auto children = findUSBChildren(usbDevice);
         for (auto childDevice : children) {
             uint16_t childVid = 0;
-            if (auto result = getPropertyAsInt(childDevice, CFSTR("idVendor")); result.has_value()) {
+            if (auto result = getPropertyAsInt<uint16_t>(childDevice, CFSTR("idVendor")); result.has_value()) {
                 childVid = result.value();
             }
             uint16_t childPid = 0;
-            if (auto result = getPropertyAsInt(childDevice, CFSTR("idProduct")); result.has_value()) {
+            if (auto result = getPropertyAsInt<uint16_t>(childDevice, CFSTR("idProduct")); result.has_value()) {
                 childPid = result.value();
             }
             
             // Only include whitelisted, non-standalone children
             if (Fw::is_vid_pid_whitelisted(childVid, childPid) && !Fw::isStandAloneDevice(childVid, childPid)) {
                 uint32_t childAddr = 0;
-                if (auto result = getPropertyAsInt(childDevice, CFSTR("locationID")); result.has_value()) {
+                if (auto result = getPropertyAsInt<uint32_t>(childDevice, CFSTR("locationID")); result.has_value()) {
                     childAddr = result.value();
                 }
 
@@ -391,6 +428,7 @@ static auto _find_all_fw_classic() noexcept
                     .name = childManuName + " " + childProductName,
                     .serial = childSerial,
                     .location = getUSBPortFromLocationID(childAddr),
+                    .portChain = getUSBPortChainFromLocationID(childAddr),
                     .paths = storagePaths.empty() ? std::nullopt : std::make_optional(storagePaths),
                     .port = serialPort,
                     ._raw = ""
@@ -441,11 +479,11 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
     
     while ((usbDevice = IOIteratorNext(iter))) {
         uint16_t vid = 0;
-        if (auto result = getPropertyAsInt(usbDevice, CFSTR("idVendor")); result.has_value()) {
+        if (auto result = getPropertyAsInt<uint16_t>(usbDevice, CFSTR("idVendor")); result.has_value()) {
             vid = result.value();
         }
         uint16_t pid = 0;
-        if (auto result = getPropertyAsInt(usbDevice, CFSTR("idProduct")); result.has_value()) {
+        if (auto result = getPropertyAsInt<uint16_t>(usbDevice, CFSTR("idProduct")); result.has_value()) {
             pid = result.value();
         }
 
@@ -456,7 +494,7 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
         }
 
         uint32_t addr = 0;
-        if (auto result = getPropertyAsInt(usbDevice, CFSTR("locationID")); result.has_value()) {
+        if (auto result = getPropertyAsInt<uint32_t>(usbDevice, CFSTR("locationID")); result.has_value()) {
             addr = result.value();
         }
         std::string containerId;
@@ -499,6 +537,7 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
             .name = manuName + " " + productName,
             .serial = serial,
             .location = getUSBPortFromLocationID(addr),
+            .portChain = getUSBPortChainFromLocationID(addr),
             .paths = storagePaths.empty() ? std::nullopt : std::make_optional(storagePaths),
             .port = serialPort,
             ._raw = "" 
