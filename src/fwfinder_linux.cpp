@@ -128,6 +128,48 @@ struct SerialInfo {
     std::string serial;
 };
 
+auto usbPortChainFromUdevDevice(udev_device* dev) -> std::vector<uint32_t> {
+    if (!dev) {
+        return {};
+    }
+
+    std::vector<uint32_t> portChain;
+
+    // Start with the current device and walk up the tree
+    udev_device* current = dev;
+
+    while (current) {
+        std::string sysnum;
+        if (const char* value = udev_device_get_sysnum(current); value) {
+            sysnum = value;
+        }
+        if (sysnum.empty()) {
+            break;
+        }
+
+        try {
+            uint32_t num = static_cast<uint32_t>(std::stoul(sysnum));
+            portChain.push_back(num);
+        } catch (...) {
+            break;
+        }
+
+        udev_device* parent =
+            udev_device_get_parent_with_subsystem_devtype(current, "usb", "usb_device");
+        if (!parent) {
+            break;
+        }
+
+        // Move up to the parent for next iteration
+        current = parent;
+    }
+
+    // Reverse the chain so it goes from root to leaf
+    std::reverse(portChain.begin(), portChain.end());
+
+    return portChain;
+}
+
 auto _listSerialPorts() noexcept -> std::vector<SerialInfo> {
     std::vector<SerialInfo> foundSerials;
     struct udev* udev = udev_new();
@@ -175,6 +217,69 @@ auto _listSerialPorts() noexcept -> std::vector<SerialInfo> {
     return foundSerials;
 }
 
+auto _createUSBDeviceFromUDevDevice(
+    udev_device* dev,
+    std::optional<std::reference_wrapper<const DiskInfo>> diskInfo,
+    std::optional<std::reference_wrapper<const SerialInfo>> serialInfo
+) -> std::optional<Fw::USBDevice> {
+    using namespace Fw;
+
+    if (!dev) {
+        return std::nullopt;
+    }
+
+    // Get device properties
+    std::string idVendor = get_device_property(dev, "idVendor");
+    std::string idProduct = get_device_property(dev, "idProduct");
+
+    if (idVendor.empty() || idProduct.empty()) {
+        return std::nullopt;
+    }
+
+    uint16_t vid = string_to_int<uint16_t>(idVendor, 16).value_or(0);
+    uint16_t pid = string_to_int<uint16_t>(idProduct, 16).value_or(0);
+
+    if (vid == 0 || pid == 0) {
+        return std::nullopt;
+    }
+
+    std::string manufacturer = get_device_property(dev, "manufacturer");
+    std::string productName = get_device_property(dev, "product");
+    std::string serial = get_device_property(dev, "serial");
+    const char* _devPath = udev_device_get_syspath(dev);
+    std::string devPath = _devPath ? _devPath : "";
+    const char* _sysnum = udev_device_get_sysnum(dev);
+    std::string sysnum = _sysnum ? _sysnum : "";
+    uint32_t location = string_to_int<uint32_t>(sysnum, 10).value_or(0);
+    std::vector<uint32_t> portChain = usbPortChainFromUdevDevice(dev);
+
+    // Build device name
+    std::string deviceName;
+    if (!manufacturer.empty() && !productName.empty()) {
+        deviceName = manufacturer + " " + productName;
+    } else if (!productName.empty()) {
+        deviceName = productName;
+    } else if (!manufacturer.empty()) {
+        deviceName = manufacturer;
+    }
+
+    return Fw::USBDevice {
+        .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
+        .vid = vid,
+        .pid = pid,
+        .name = deviceName,
+        .serial = serial,
+        .location = static_cast<uint8_t>(location),
+        .portChain = portChain,
+        .paths = diskInfo.has_value()
+            ? std::optional<std::vector<std::string>>(diskInfo->get().mountPoints)
+            : std::nullopt,
+        .port = serialInfo.has_value() ? std::optional<std::string>(serialInfo->get().ttyName)
+                                       : std::nullopt,
+        ._raw = devPath,
+    };
+}
+
 auto _find_all_standalone(
     const std::vector<DiskInfo>& disks,
     const std::vector<SerialInfo>& serialPorts
@@ -194,94 +299,101 @@ auto _find_all_standalone(
     struct udev_list_entry* devices = udev_enumerate_get_list_entry(enumerate);
     struct udev_list_entry* dev_list_entry;
 
-    // Find the Hubs
-    std::stringstream ss;
-    ss << std::setfill('0') << std::setw(4) << std::hex << USB_VID_FW_HUB;
-    const std::string targetHubVid = ss.str();
-    ss = {};
-    ss << std::setfill('0') << std::setw(4) << std::hex << USB_PID_FW_HUB;
-    const std::string targetHubPid = ss.str();
-
     udev_list_entry_foreach(dev_list_entry, devices) {
         const char* path = udev_list_entry_get_name(dev_list_entry);
         struct udev_device* dev = udev_device_new_from_syspath(udev, path);
+
         std::string idVendor = get_device_property(dev, "idVendor");
         std::string idProduct = get_device_property(dev, "idProduct");
+        uint16_t vid = string_to_int<uint16_t>(idVendor, 16).value_or(0);
+        uint16_t pid = string_to_int<uint16_t>(idProduct, 16).value_or(0);
+
+        // Check if this is a standalone device
+        if (!Fw::isStandAloneDevice(vid, pid)) {
+            udev_device_unref(dev);
+            continue;
+        }
+
+        // Check if the parent USB controller is NOT a FreeWili Hub
+        struct udev_device* parent =
+            udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_device");
+        if (parent) {
+            std::string parentIdVendor = get_device_property(parent, "idVendor");
+            std::string parentIdProduct = get_device_property(parent, "idProduct");
+            uint16_t parentVid = string_to_int<uint16_t>(parentIdVendor, 16).value_or(0);
+            uint16_t parentPid = string_to_int<uint16_t>(parentIdProduct, 16).value_or(0);
+
+            // Skip if parent is a FreeWili Hub
+            if (parentVid == USB_VID_FW_HUB && parentPid == USB_PID_FW_HUB) {
+                udev_device_unref(dev);
+                continue;
+            }
+        }
+
+        // Get device information
         std::string manufacturer = get_device_property(dev, "manufacturer");
         std::string productName = get_device_property(dev, "product");
         std::string serial = get_device_property(dev, "serial");
         const char* _sysnum = udev_device_get_sysnum(dev);
         std::string sysnum = _sysnum ? _sysnum : "";
-        uint16_t vid = string_to_int<uint16_t>(idVendor, 16).value_or(0);
-        uint16_t pid = string_to_int<uint16_t>(idProduct, 16).value_or(0);
-        uint32_t location = string_to_int<uint32_t>(sysnum, 10).value_or(0);
-        if (idVendor == targetHubVid && idProduct == targetHubPid) {
-            if (!Fw::is_vid_pid_whitelisted(vid, pid)) {
-                udev_device_unref(dev);
-                continue;
-            }
-            // We have a whitelisted device
-            // TODO: Finish this
-        } else {
-            // Check if this is a standalone device
-            if (!Fw::isStandAloneDevice(vid, pid)) {
-                udev_device_unref(dev);
-                continue;
-            }
+        uint32_t deviceLocation = string_to_int<uint32_t>(sysnum, 10).value_or(0);
+        std::string devPath = udev_device_get_syspath(dev);
+        std::vector<uint32_t> portChain = usbPortChainFromUdevDevice(dev);
 
-            // We have a standalone device, find its disk and serial port information
-            std::string devPath = udev_device_get_syspath(dev);
+        // Find associated disk
+        auto diskIter = std::find_if(disks.begin(), disks.end(), [&](const DiskInfo& disk) {
+            return disk.devPath == devPath;
+        });
 
-            // Find associated disk
-            auto diskIter = std::find_if(disks.begin(), disks.end(), [&](const DiskInfo& disk) {
-                return disk.devPath == devPath;
+        // Find associated serial port
+        auto serialIter =
+            std::find_if(serialPorts.begin(), serialPorts.end(), [&](const SerialInfo& serialInfo) {
+                return serialInfo.devPath == devPath;
             });
 
-            // Find associated serial port
-            auto serialIter = std::find_if(
-                serialPorts.begin(),
-                serialPorts.end(),
-                [&](const SerialInfo& serialInfo) { return serialInfo.devPath == devPath; }
-            );
+        // Create USB devices list
+        USBDevices devices;
 
-            // Create USB device
-            USBDevices devices;
-            devices.push_back(
-                Fw::USBDevice {
-                    .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
-                    .vid = vid,
-                    .pid = pid,
-                    .name = manufacturer.empty() ? productName : manufacturer + " " + productName,
-                    .serial = serial,
-                    .location = static_cast<uint8_t>(location),
-                    .paths = diskIter == disks.end()
-                        ? std::nullopt
-                        : std::optional<std::vector<std::string>>(diskIter->mountPoints),
-                    .port = serialIter == serialPorts.end()
-                        ? std::nullopt
-                        : std::optional<std::string>(serialIter->ttyName),
-                    ._raw = devPath,
-                }
-            );
-
-            // Create FreeWili device from USB device
-            if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
-                fwDevices.push_back(result.value());
-            } else {
-                std::cerr << "Failed to create FreeWiliDevice: " << result.error() << std::endl;
+        // Add the standalone device
+        devices.push_back(
+            Fw::USBDevice {
+                .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
+                .vid = vid,
+                .pid = pid,
+                .name = manufacturer.empty() ? productName : manufacturer + " " + productName,
+                .serial = serial,
+                .location = static_cast<uint8_t>(deviceLocation),
+                .portChain = portChain,
+                .paths = diskIter == disks.end()
+                    ? std::nullopt
+                    : std::optional<std::vector<std::string>>(diskIter->mountPoints),
+                .port = serialIter == serialPorts.end()
+                    ? std::nullopt
+                    : std::optional<std::string>(serialIter->ttyName),
+                ._raw = devPath,
             }
+        );
+
+        // Create FreeWili device from USB devices
+        if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
+            auto fwDevice = std::move(result.value());
+            fwDevices.push_back(std::move(fwDevice));
+        } else {
+            std::cerr << "Failed to create FreeWiliDevice: " << result.error() << std::endl;
         }
+
         udev_device_unref(dev);
     }
+
     udev_enumerate_unref(enumerate);
     udev_unref(udev);
 
-    // Sort the devices by serial number (matching Windows implementation)
+    // Sort the devices by UniqueID
     std::sort(
         fwDevices.begin(),
         fwDevices.end(),
         [](const Fw::FreeWiliDevice& lhs, const Fw::FreeWiliDevice& rhs) {
-            return lhs.serial < rhs.serial;
+            return lhs.uniqueID < rhs.uniqueID;
         }
     );
 
@@ -334,6 +446,7 @@ auto _find_all_freewili(
             uint16_t vid = string_to_int<uint16_t>(idVendor, 16).value_or(0);
             uint16_t pid = string_to_int<uint16_t>(idProduct, 16).value_or(0);
             uint32_t location = string_to_int<uint32_t>(sysnum, 10).value_or(0);
+            std::vector<uint32_t> portChain = usbPortChainFromUdevDevice(dev);
             if (vid == 0 || pid == 0) {
                 udev_device_unref(dev);
                 continue;
@@ -353,6 +466,7 @@ auto _find_all_freewili(
                     .name = manufacturer + " " + productName,
                     .serial = serial,
                     .location = static_cast<uint8_t>(location),
+                    .portChain = portChain,
                     .paths = diskPathIter == disks.end()
                         ? std::nullopt
                         : std::optional<std::vector<std::string>>(diskPathIter->mountPoints),
@@ -403,6 +517,7 @@ auto _find_all_freewili(
         uint16_t vid = string_to_int<uint16_t>(idVendor, 16).value_or(0);
         uint16_t pid = string_to_int<uint16_t>(idProduct, 16).value_or(0);
         uint32_t location = string_to_int<uint32_t>(sysnum, 10).value_or(0);
+        std::vector<uint32_t> portChain = usbPortChainFromUdevDevice(dev);
         if (idVendor == targetHubVid && idProduct == targetHubPid) {
             std::string hubSysPath = udev_device_get_syspath(dev);
             auto hubDevice = USBDevice {
@@ -412,6 +527,7 @@ auto _find_all_freewili(
                 .name = productName,
                 .serial = serial,
                 .location = static_cast<uint8_t>(location),
+                .portChain = portChain,
                 .paths = std::nullopt,
                 .port = std::nullopt,
                 ._raw = hubSysPath,
@@ -421,7 +537,7 @@ auto _find_all_freewili(
             if (auto fwDeviceResult = Fw::FreeWiliDevice::fromUSBDevices(usbChildren);
                 fwDeviceResult.has_value())
             {
-                fwDevices.push_back(fwDeviceResult.value());
+                fwDevices.push_back(std::move(fwDeviceResult.value()));
             } else {
                 std::cerr << fwDeviceResult.error();
             }
@@ -454,6 +570,15 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     } else {
         return std::unexpected(result.error());
     }
+    // Sort the devices by unique ID
+    std::sort(
+        devices.begin(),
+        devices.end(),
+        [](const Fw::FreeWiliDevice& lhs, const Fw::FreeWiliDevice& rhs) {
+            // order smallest to largest
+            return lhs.uniqueID < rhs.uniqueID;
+        }
+    );
     return devices;
 }
 

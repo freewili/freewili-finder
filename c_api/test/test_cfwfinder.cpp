@@ -223,6 +223,9 @@ TEST(CFwFinderCAPI, UsbDeviceEnumeration_IfDeviceFound) {
 
             // Move to the next USB device
             err = fw_usb_device_next(devices[i]);
+            if (err == fw_error_no_more_devices) {
+                break;
+            }
             ASSERT_EQ(err, fw_error_success);
         }
     }

@@ -8,11 +8,21 @@
 
 namespace Fw {
 
+// Forward declaration
+class FreeWiliDeviceBuilder;
+
+/// Location of the USB device on the FreeWili Classic hub
+enum class USBHubPortLocation : uint32_t {
+    Main = 1,
+    Display = 2,
+    FPGA = 3,
+};
+
 enum class DeviceType : uint32_t {
     Unknown = 0,
     FreeWili = 1,
-    DefCon2024Badge = 2,
-    DefCon2025FwBadge = 3,
+    DEFCON2024Badge = 2,
+    DEFCON2025FwBadge = 3,
     UF2 = 4,
     Winky = 5,
 };
@@ -58,8 +68,11 @@ struct USBDevice {
     std::string name;
     /// Serial of the device
     std::string serial;
-    /// USB physical location, 0 = first port
+    /// USB physical location, 1 = first port
     uint32_t location;
+
+    /// USB port chain
+    std::vector<uint32_t> portChain;
 
     /// USB Mass storage Path - This is only valid when kind is MassStorage
     std::optional<std::vector<std::string>> paths;
@@ -68,6 +81,8 @@ struct USBDevice {
 
     /// Internal system path of the USBDevice
     std::string _raw;
+
+    bool operator==(const USBDevice& other) const noexcept = default;
 };
 
 /// Container of all USB Devices.
@@ -79,17 +94,73 @@ struct FreeWiliDevice {
     std::string name;
     std::string serial;
 
+    // This is a unique ID based on location so we
+    // can identify devices when the configuration
+    // changes.
+    uint64_t uniqueID;
+
+    bool standalone;
+
     USBDevices usbDevices;
 
+    // Copy constructor
+    FreeWiliDevice(const FreeWiliDevice& other) = default;
+
+    // Move constructor
+    FreeWiliDevice(FreeWiliDevice&& other) noexcept;
+
+    // Copy assignment operator
+    FreeWiliDevice& operator=(const FreeWiliDevice& other) = default;
+
+    // Get all USB devices attached to the USB Hub
+    // On standalone devices like the badge this will return Main only.
+    // specifying an empty vector will return all.
+    auto getUSBDevices(std::vector<USBDeviceType> usbDeviceTypes) const noexcept -> USBDevices;
     auto getUSBDevices(USBDeviceType usbDeviceType) const noexcept -> USBDevices;
+    auto getUSBDevices() const noexcept -> USBDevices;
+
+    // Get the Main Processor as a USBDevice
+    auto getMainUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
+    // Get the Display Processor as a USBDevice
+    auto getDisplayUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
+    // Get the FPGA Processor as a USBDevice
+    auto getFPGAUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
+    // Get the Hub as a USBDevice
+    auto getHubUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
 
     /// Helper function to create a FreeWiliDevice from USBDevices
     static auto fromUSBDevices(const USBDevices& usbDevices)
         -> std::expected<FreeWiliDevice, std::string>;
 
+    /**
+     * @brief Creates a new FreeWiliDeviceBuilder for constructing FreeWiliDevice objects.
+     *
+     * @return A new FreeWiliDeviceBuilder instance for fluent construction
+     */
+    static FreeWiliDeviceBuilder builder();
+
     bool operator==(const FreeWiliDevice& other) const noexcept {
-        return name == other.name && serial == other.serial;
+        return uniqueID == other.uniqueID;
     }
+
+private:
+    // Private constructor for builder pattern - only accessible by FreeWiliDeviceBuilder
+    friend class FreeWiliDeviceBuilder;
+
+    FreeWiliDevice(
+        Fw::DeviceType type,
+        const std::string& name,
+        const std::string& serial,
+        uint64_t id,
+        bool standalone,
+        Fw::USBDevices&& devices
+    ):
+        deviceType(type),
+        name(name),
+        serial(serial),
+        uniqueID(id),
+        standalone(standalone),
+        usbDevices(std::move(devices)) {}
 };
 
 /// Free-Wili Devices

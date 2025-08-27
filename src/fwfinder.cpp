@@ -1,10 +1,33 @@
 #include <fwfinder.hpp>
+#include <fwbuilder.hpp>
 #include <usbdef.hpp>
 
 #include <expected>
 #include <string>
 #include <algorithm>
 #include <sstream>
+#include <cassert>
+#include <limits>
+
+auto _generateUniqueIDFromUSBPortChain(const std::vector<uint32_t>& usbPortChain) -> uint64_t {
+    // Limitation: We can do 10 hubs deep and 64 ports per hub with 6 bits allocated per port.
+    // Currently USB 3.0 controller max out at 64 devices. The spec states 128 per controller,
+    // but I have yet to see this in practice as of September 2025.
+    const auto bitsPerPort = 6; // Make sure the mask below matches this
+    assert(usbPortChain.size() != 0 && "USB port chain cannot be empty");
+    assert(
+        usbPortChain.size() <= std::numeric_limits<uint64_t>::digits / bitsPerPort
+        && "USB port chain too deep"
+    );
+
+    uint64_t uniqueID = 0;
+    auto i = 0;
+    for (const uint32_t& port: usbPortChain) {
+        uniqueID |= (port & 0x3F) << (bitsPerPort * i++);
+    }
+
+    return uniqueID;
+}
 
 bool Fw::isStandAloneDevice(uint16_t vid, uint16_t pid) {
     // Check if the VID and PID match any known standalone devices
@@ -61,11 +84,11 @@ auto Fw::getUSBDeviceTypeName(Fw::USBDeviceType type) -> std::string {
 auto Fw::getDeviceTypeName(Fw::DeviceType type) -> std::string {
     switch (type) {
         case Fw::DeviceType::FreeWili:
-            return "FreeWili";
-        case Fw::DeviceType::DefCon2024Badge:
-            return "DefCon2024Badge";
-        case Fw::DeviceType::DefCon2025FwBadge:
-            return "DefCon2025FwBadge";
+            return "Free-WiLi";
+        case Fw::DeviceType::DEFCON2024Badge:
+            return "DEFCON 2024 Badge";
+        case Fw::DeviceType::DEFCON2025FwBadge:
+            return "DEFCON 2025 Badge";
         case Fw::DeviceType::UF2:
             return "UF2";
         case Fw::DeviceType::Winky:
@@ -75,22 +98,55 @@ auto Fw::getDeviceTypeName(Fw::DeviceType type) -> std::string {
     }
 }
 
-auto Fw::FreeWiliDevice::getUSBDevices(Fw::USBDeviceType usbDeviceType) const noexcept
+Fw::FreeWiliDevice::FreeWiliDevice(FreeWiliDevice&& other) noexcept:
+    deviceType(other.deviceType),
+    name(std::move(other.name)),
+    serial(std::move(other.serial)),
+    uniqueID(other.uniqueID),
+    standalone(other.standalone),
+    usbDevices(std::move(other.usbDevices)) {
+    other.deviceType = Fw::DeviceType::Unknown;
+    other.uniqueID = std::numeric_limits<uint64_t>::max();
+}
+
+auto Fw::FreeWiliDevice::getUSBDevices(std::vector<Fw::USBDeviceType> usbDeviceTypes) const noexcept
     -> Fw::USBDevices {
+    // Helper function to see if a vector contains the DeviceType
+    auto contains = [&](const Fw::USBDeviceType other_type) {
+        return std::find_if(
+                   usbDeviceTypes.begin(),
+                   usbDeviceTypes.end(),
+                   [&](const Fw::USBDeviceType& device_type) { return device_type == other_type; }
+               )
+            != usbDeviceTypes.end();
+    };
+
     Fw::USBDevices foundDevices;
     std::for_each(usbDevices.begin(), usbDevices.end(), [&](const USBDevice& usb_dev) {
-        if (usb_dev.kind == usbDeviceType) {
+        if (usbDeviceTypes.empty() || contains(usb_dev.kind)) {
             foundDevices.push_back(usb_dev);
         }
     });
     return foundDevices;
 }
 
+auto Fw::FreeWiliDevice::getUSBDevices(Fw::USBDeviceType usbDeviceType) const noexcept
+    -> Fw::USBDevices {
+    std::vector<Fw::USBDeviceType> types = { usbDeviceType };
+    return getUSBDevices(types);
+}
+
+auto Fw::FreeWiliDevice::getUSBDevices() const noexcept -> Fw::USBDevices {
+    return usbDevices;
+}
+
 auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
     -> std::expected<Fw::FreeWiliDevice, std::string> {
     std::string name;
     std::string serial;
+    uint64_t uniqueID = std::numeric_limits<uint64_t>::min();
     Fw::DeviceType deviceType = Fw::DeviceType::Unknown;
+    std::vector<uint32_t> usbPortChain;
 
     // Check if this is a standalone device (e.g., Winky)
     bool isStandaloneDevice = false;
@@ -98,9 +154,9 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
         if (Fw::isStandAloneDevice(device.vid, device.pid)) {
             isStandaloneDevice = true;
             if (device.pid == Fw::USB_PID_FW_DEFCON_2024) {
-                deviceType = Fw::DeviceType::DefCon2024Badge;
+                deviceType = Fw::DeviceType::DEFCON2024Badge;
             } else if (device.pid == Fw::USB_PID_FW_DEFCON_BADGE_2025) {
-                deviceType = Fw::DeviceType::DefCon2025FwBadge;
+                deviceType = Fw::DeviceType::DEFCON2025FwBadge;
             } else if (device.pid == Fw::USB_PID_FW_WINKY) {
                 deviceType = Fw::DeviceType::Winky;
             } else if (device.pid == Fw::USB_PID_FW_RPI_2040_UF2_PID
@@ -112,6 +168,7 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
             }
             name = device.name;
             serial = device.serial;
+            uniqueID = _generateUniqueIDFromUSBPortChain(device.portChain);
             break;
         }
     }
@@ -122,34 +179,30 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
     // Original hub-based device logic for FreeWili devices
     // Find the name and serial from the FTDI chip
     if (!isStandaloneDevice) {
+        name = Fw::getDeviceTypeName(Fw::DeviceType::FreeWili);
+        deviceType = Fw::DeviceType::FreeWili; // Default to FreeWili if not standalone
         if (auto it = std::find_if(
                 usbDevices.begin(),
                 usbDevices.end(),
                 [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::FTDI; }
             );
-            it == usbDevices.end())
+            it != usbDevices.end())
         {
-            return std::unexpected(
-                "Failed to get serial number of FreeWiliDevice. Missing FTDI chip."
-            );
-        } else {
-            name = it->name;
             serial = it->serial;
-            deviceType = Fw::DeviceType::FreeWili; // Default to FreeWili if not standalone
+        } else {
+            serial = "Unknown";
         }
 
-        // // Lets seperate the USB Hub
-        // if (auto it = std::find_if(
-        //         sortedUsbDevices.begin(),
-        //         sortedUsbDevices.end(),
-        //         [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::Hub; }
-        //     );
-        //     it == sortedUsbDevices.end())
-        // {
-        //     return std::unexpected("Failed to get the hub of the FreeWiliDevice.");
-        // } else {
-        //     sortedUsbDevices.erase(it);
-        // }
+        // Get the location ID of the hub
+        if (auto it = std::find_if(
+                sortedUsbDevices.begin(),
+                sortedUsbDevices.end(),
+                [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::Hub; }
+            );
+            it != sortedUsbDevices.end())
+        {
+            uniqueID = _generateUniqueIDFromUSBPortChain(it->portChain);
+        }
 
         // Sort the USB devices
         std::sort(
@@ -157,7 +210,7 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
             sortedUsbDevices.end(),
             [](const Fw::USBDevice& lhs, const Fw::USBDevice& rhs) {
                 // Always put the hub at the bottom
-                if (rhs.kind == Fw::USBDeviceType::Hub) {
+                if (lhs.kind == Fw::USBDeviceType::Hub || rhs.kind == Fw::USBDeviceType::Hub) {
                     return false;
                 }
                 // order smallest to largest
@@ -166,10 +219,104 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
         );
     }
 
-    return Fw::FreeWiliDevice {
-        .deviceType = deviceType,
-        .name = name,
-        .serial = serial,
-        .usbDevices = sortedUsbDevices,
-    };
+    return Fw::FreeWiliDevice::builder()
+        .setDeviceType(deviceType)
+        .setName(name)
+        .setSerial(serial)
+        .setUniqueID(uniqueID)
+        .setStandalone(isStandaloneDevice)
+        .setUSBDevices(std::move(sortedUsbDevices))
+        .build();
+}
+
+Fw::FreeWiliDeviceBuilder Fw::FreeWiliDevice::builder() {
+    return Fw::FreeWiliDeviceBuilder();
+}
+
+auto Fw::FreeWiliDevice::getMainUSBDevice() const noexcept
+    -> std::expected<USBDevice, std::string> {
+    if (standalone) {
+        if (usbDevices.size() && isStandAloneDevice(usbDevices[0].vid, usbDevices[0].pid)) {
+            return usbDevices[0];
+        }
+    } else if (auto it = std::find_if(
+                   usbDevices.begin(),
+                   usbDevices.end(),
+                   [&](const USBDevice& usb_dev) {
+                       return usb_dev.location
+                           == static_cast<uint32_t>(Fw::USBHubPortLocation::Main)
+                           && usb_dev.kind != Fw::USBDeviceType::Hub
+                           && usb_dev.kind != Fw::USBDeviceType::Other;
+                   }
+               );
+               it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("Main USB device not found");
+}
+
+auto Fw::FreeWiliDevice::getDisplayUSBDevice() const noexcept
+    -> std::expected<USBDevice, std::string> {
+    if (standalone) {
+        std::stringstream ss;
+        ss << getDeviceTypeName(deviceType)
+           << " is a standalone device and has no Display USB device.";
+        return std::unexpected(ss.str());
+    } else if (auto it = std::find_if(
+                   usbDevices.begin(),
+                   usbDevices.end(),
+                   [&](const USBDevice& usb_dev) {
+                       return usb_dev.location
+                           == static_cast<uint32_t>(Fw::USBHubPortLocation::Display)
+                           && usb_dev.kind != Fw::USBDeviceType::Hub
+                           && usb_dev.kind != Fw::USBDeviceType::Other;
+                   }
+               );
+               it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("Display USB device not found");
+}
+
+auto Fw::FreeWiliDevice::getFPGAUSBDevice() const noexcept
+    -> std::expected<USBDevice, std::string> {
+    if (standalone) {
+        std::stringstream ss;
+        ss << getDeviceTypeName(deviceType)
+           << " is a standalone device and has no FPGA USB device.";
+        return std::unexpected(ss.str());
+    } else if (auto it = std::find_if(
+                   usbDevices.begin(),
+                   usbDevices.end(),
+                   [&](const USBDevice& usb_dev) {
+                       return usb_dev.location
+                           == static_cast<uint32_t>(Fw::USBHubPortLocation::FPGA)
+                           && usb_dev.kind != Fw::USBDeviceType::Hub
+                           && usb_dev.kind != Fw::USBDeviceType::Other;
+                   }
+               );
+               it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("FPGA USB device not found");
+}
+
+auto Fw::FreeWiliDevice::getHubUSBDevice() const noexcept -> std::expected<USBDevice, std::string> {
+    if (standalone) {
+        std::stringstream ss;
+        ss << getDeviceTypeName(deviceType) << " is a standalone device and has no HUB USB device.";
+        return std::unexpected(ss.str());
+    } else if (auto it = std::find_if(
+                   usbDevices.begin(),
+                   usbDevices.end(),
+                   [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::Hub; }
+               );
+               it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("Hub USB device not found");
 }

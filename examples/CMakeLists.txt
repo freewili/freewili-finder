@@ -30,6 +30,34 @@ if(WIN32)
     )
 endif()
 
+# Port Chain Analysis Example
+add_executable(
+    test_port_chain
+    test_port_chain.cpp
+)
+
+target_include_directories(
+    test_port_chain
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+)
+
+target_link_libraries(
+    test_port_chain
+    PRIVATE
+        ${PROJECT_NAME}
+)
+
+# Copy DLL to the examples directory on Windows
+if(WIN32)
+    add_custom_command(TARGET test_port_chain POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:${PROJECT_NAME}>
+        $<TARGET_FILE_DIR:test_port_chain>
+        COMMENT "Copying fwfinder.dll to examples directory"
+    )
+endif()
+
 # C Example using the C API
 if (FW_BUILD_C_API)
     add_executable(

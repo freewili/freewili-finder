@@ -144,26 +144,6 @@ enum class USBDeviceType {
 };
 ```
 
-#### Data Structures
-
-```cpp
-struct USBDevice {
-    USBDeviceType kind;
-    uint16_t vid, pid;
-    std::string name, serial;
-    uint32_t location;
-    std::optional<std::string> port;           // For serial devices
-    std::optional<std::vector<std::string>> paths; // For mass storage
-};
-
-struct FreeWiliDevice {
-    std::string name, serial;
-    std::vector<USBDevice> usbDevices;
-
-    auto getUSBDevices(USBDeviceType type) const -> std::vector<USBDevice>;
-};
-```
-
 ### C API (`cfwfinder.h`)
 
 #### Core Functions

@@ -105,4 +105,37 @@ if (FW_FINDER_BUILD_TESTS AND FW_BUILD_STATIC)
         COMMAND "${C_API_PROJECT_NAME}_test"
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
+
+    # Fixed string copy unit tests
+    add_executable(
+        "test_fixed_string_copy"
+        test/test_fixed_string_copy.cpp
+    )
+
+    target_include_directories(
+        "test_fixed_string_copy"
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    )
+
+    target_link_libraries(
+        "test_fixed_string_copy"
+        PRIVATE
+            GTest::gtest_main
+    )
+
+    # Define that we're using static linking for the test
+    target_compile_definitions(
+        "test_fixed_string_copy"
+        PRIVATE
+            CFW_FINDER_BUILD_STATIC
+    )
+
+    # Register the fixed string copy test with CTest
+    add_test(
+        NAME "fixed_string_copy_test"
+        COMMAND "test_fixed_string_copy"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
 endif ()

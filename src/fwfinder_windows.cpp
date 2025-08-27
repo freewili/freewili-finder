@@ -38,6 +38,7 @@
     #include <vector>
     #include <tuple>
     #include <cctype>
+    #include <iostream>
     #include <fwfinder.hpp>
     #include <fwfinder_windows.hpp>
     #include <usbdef.hpp>
@@ -255,6 +256,68 @@ auto _getDeviceProperty(DEVINST devInst, const DEVPROPKEY key) noexcept
     return stringFromTCHAR(szValue);
 };
 
+// Helper to retrieve MULTI_SZ style device property (e.g. DEVPKEY_Device_LocationPaths)
+auto _getDevicePropertyMultiSz(DEVINST devInst, const DEVPROPKEY key) noexcept
+    -> std::expected<std::vector<std::string>, std::string> {
+    DEVPROPTYPE propertyType = DEVPROP_TYPE_STRING_LIST; // MULTI_SZ
+    // First query required size
+    ULONG size = 0;
+    if (auto res = CM_Get_DevNode_Property(devInst, &key, &propertyType, nullptr, &size, 0);
+        res != CR_BUFFER_SMALL)
+    {
+        if (res == CR_SUCCESS) {
+            // Empty list
+            return std::vector<std::string>();
+        }
+        std::stringstream ss;
+        ss << "CM_Get_DevNode_Property(size) failed with CR error: " << res;
+        return std::unexpected(ss.str());
+    }
+    std::vector<BYTE> buffer(size + sizeof(TCHAR));
+    if (auto res = CM_Get_DevNode_Property(devInst, &key, &propertyType, buffer.data(), &size, 0);
+        res != CR_SUCCESS)
+    {
+        std::stringstream ss;
+        ss << "CM_Get_DevNode_Property(data) failed with CR error: " << res;
+        return std::unexpected(ss.str());
+    }
+    // Parse MULTI_SZ (double NUL terminated)
+    std::vector<std::string> values;
+    TCHAR* ptr = reinterpret_cast<TCHAR*>(buffer.data());
+    while (*ptr) {
+        auto s = stringFromTCHAR(ptr);
+        if (!s.empty()) {
+            values.push_back(s);
+        }
+        ptr += s.length() + 1; // advance past string and null
+    }
+    return values;
+};
+
+// Extract port chain numbers from a list of location path strings. We pick the first path that
+// contains USB(x) segments. Example path fragment:
+// "PCIROOT(0)#PCI(1400)#USBROOT(0)#USB(3)#USB(2)#USB(4)" -> {3,2,4}
+auto _extractUSBPortChainFromLocationPaths(const std::vector<std::string>& paths) noexcept
+    -> std::vector<uint32_t> {
+    std::regex usbRegex(R"(USB\((\d+)\))", std::regex_constants::icase);
+    for (auto const& p: paths) {
+        std::sregex_iterator it(p.begin(), p.end(), usbRegex), end;
+        std::vector<uint32_t> chain;
+        for (; it != end; ++it) {
+            try {
+                auto v = static_cast<uint32_t>(std::stoul((*it)[1].str()));
+                chain.push_back(v);
+            } catch (...) {
+                // Ignore bad conversions
+            }
+        }
+        if (!chain.empty()) {
+            return chain;
+        }
+    }
+    return {};
+}
+
 // Helper function to get device Property GUID
 auto _getDevicePropertyGUID(DEVINST devInst, const DEVPROPKEY key) noexcept
     -> std::expected<GUID, std::string> {
@@ -370,12 +433,16 @@ struct EnumeratedDevice {
     std::vector<std::string> children;
     std::vector<std::string> removableRelations;
     std::string driveLetter;
-    uint8_t location;
+    // USB port location (end of chain)
+    uint32_t location { 0 };
     uint16_t vid;
     uint16_t pid;
     std::string serial;
     std::optional<std::string> port;
     std::optional<std::vector<std::string>> driveLetters;
+    // Full USB port chain as reported by DEVPKEY_Device_LocationPaths (e.g. USB(1)->USB(3)->USB(2)).
+    // Stored without packing so future APIs can expose full depth without ambiguity.
+    std::vector<uint32_t> usbPortChain;
 };
 
 typedef std::unordered_map<std::string, std::shared_ptr<EnumeratedDevice>> EnumeratedDevices;
@@ -522,6 +589,16 @@ auto getEnumeratedDevices() noexcept
             result.has_value())
         {
             enumeratedDevice->containerId = result.value();
+        }
+        // Location Paths -> Port Chain
+        if (auto locPaths =
+                _getDevicePropertyMultiSz(devInfoData.DevInst, DEVPKEY_Device_LocationPaths);
+            locPaths.has_value())
+        {
+            enumeratedDevice->usbPortChain =
+                _extractUSBPortChainFromLocationPaths(locPaths.value());
+            enumeratedDevice->location =
+                enumeratedDevice->usbPortChain.empty() ? 0 : enumeratedDevice->usbPortChain.back();
         }
     }
 
@@ -760,8 +837,6 @@ auto getHubEnumeratedDevices(
         // This grabs all VID/PID devices we care about for now.
         auto usbInstId = getUSBInstanceID(instanceId);
         if (!usbInstId.has_value()) {
-            // TODO
-            //std::println("\t\tInvalid VID/PID: {} {}", usbInstId.error(), instanceID);
             continue;
         } else if (!Fw::is_vid_pid_whitelisted(usbInstId.value().vid, usbInstId.value().pid)) {
             continue;
@@ -912,14 +987,11 @@ auto getHubEnumeratedDevices(
                             "Failed to get enumeratedDevice by driver key. Value is null"
                         );
                     }
-                    //enumeratedDevice->driverKey = name;
                     if (auto serialPort =
                             findSerialPort(allDeviceInfo, enumeratedDevice, devicesByInstanceId, 0);
                         serialPort.has_value())
                     {
                         enumeratedDevice->port = serialPort.value();
-                    } else {
-                        // TODO: std::cerr << serialPort.error();
                     }
                     if (auto volumePaths = findVolumePaths(
                             allDeviceInfo,
@@ -932,11 +1004,11 @@ auto getHubEnumeratedDevices(
                         volumePaths.has_value())
                     {
                         enumeratedDevice->driveLetters = volumePaths.value();
-                    } else {
-                        // TODO: std::cerr << serialPort.error();
                     }
 
-                    enumeratedDevice->location = i;
+                    enumeratedDevice->location = enumeratedDevice->usbPortChain.empty()
+                        ? i
+                        : enumeratedDevice->usbPortChain.back();
                     hubs[enumeratedHubDevice].push_back(enumeratedDevice);
                 }
             }
@@ -987,8 +1059,9 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
                 .name = hub.first->busDescription + " (" + hub.first->description + ")",
                 .serial = hub.first->serial,
                 .location = hub.first->location,
-                .paths = std::nullopt, // TODO
-                .port = "", // TODO
+                .portChain = hub.first->usbPortChain,
+                .paths = std::nullopt,
+                .port = "",
                 ._raw = hub.first->instanceId,
             }
         );
@@ -1001,28 +1074,21 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
                     .name = child->busDescription + " (" + child->description + ")",
                     .serial = child->serial,
                     .location = child->location,
-                    .paths = child->driveLetters, // TODO
+                    .portChain = child->usbPortChain,
+                    .paths = child->driveLetters,
                     .port = child->port,
                     ._raw = child->instanceId,
                 }
             );
         }
+        // Create FreeWili device from USB devices with UniqueID
         if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
-            fwDevices.push_back(result.value());
+            auto fwDevice = std::move(result.value());
+            fwDevices.push_back(std::move(fwDevice));
         } else {
-            return std::unexpected(result.error());
-            // TOOD
+            std::cerr << "Failed to create FreeWiliDevice: " << result.error() << std::endl;
         }
     }
-    // Sort the devices by serial number
-    std::sort(
-        fwDevices.begin(),
-        fwDevices.end(),
-        [](const Fw::FreeWiliDevice& lhs, const Fw::FreeWiliDevice& rhs) {
-            // order smallest to largest
-            return lhs.serial < rhs.serial;
-        }
-    );
 
     return fwDevices;
 }
@@ -1082,7 +1148,8 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
                 .name = device.second->busDescription + " (" + device.second->description + ")",
                 .serial = device.second->serial,
                 .location = device.second->location,
-                .paths = device.second->driveLetters, // TODO
+                .portChain = device.second->usbPortChain,
+                .paths = device.second->driveLetters,
                 .port = device.second->port,
                 ._raw = device.second->instanceId,
             }
@@ -1091,7 +1158,6 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
             fwDevices.push_back(result.value());
         } else {
             return std::unexpected(result.error());
-            // TODO
         }
     }
     // Sort the devices by serial number
@@ -1116,6 +1182,16 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     } else {
         return std::unexpected(result.error());
     }
+
+    // Sort the devices by unique ID
+    std::sort(
+        devices.begin(),
+        devices.end(),
+        [](const Fw::FreeWiliDevice& lhs, const Fw::FreeWiliDevice& rhs) {
+            // order smallest to largest
+            return lhs.uniqueID < rhs.uniqueID;
+        }
+    );
     return devices;
 }
 
