@@ -15,6 +15,8 @@
     #include <sstream>
     #include <map>
     #include <set>
+    #include <vector>
+    #include <algorithm>
 
 auto cfstrAsString(CFStringRef string_ref) noexcept -> std::string {
     if (string_ref == nullptr) {
