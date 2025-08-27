@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <sstream>
 #include <cassert>
+#include <limits>
 
 auto _generateUniqueIDFromUSBPortChain(const std::vector<uint32_t>& usbPortChain) -> uint64_t {
     // Limitation: We can do 10 hubs deep and 64 ports per hub with 6 bits allocated per port.
