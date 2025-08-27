@@ -433,9 +433,7 @@ struct EnumeratedDevice {
     std::vector<std::string> children;
     std::vector<std::string> removableRelations;
     std::string driveLetter;
-    // Packed location derived from parsed USB port chain (up to 4 levels, 1 byte each).
-    // If fewer than 4 levels, remaining bytes are 0. Root-most port is stored in the most
-    // significant byte to keep lexical ordering by depth.
+    // USB port location (end of chain)
     uint32_t location { 0 };
     uint16_t vid;
     uint16_t pid;
@@ -599,6 +597,8 @@ auto getEnumeratedDevices() noexcept
         {
             enumeratedDevice->usbPortChain =
                 _extractUSBPortChainFromLocationPaths(locPaths.value());
+            enumeratedDevice->location =
+                enumeratedDevice->usbPortChain.empty() ? 0 : enumeratedDevice->usbPortChain.back();
         }
     }
 
@@ -1006,7 +1006,9 @@ auto getHubEnumeratedDevices(
                         enumeratedDevice->driveLetters = volumePaths.value();
                     }
 
-                    enumeratedDevice->location = i;
+                    enumeratedDevice->location = enumeratedDevice->usbPortChain.empty()
+                        ? i
+                        : enumeratedDevice->usbPortChain.back();
                     hubs[enumeratedHubDevice].push_back(enumeratedDevice);
                 }
             }
@@ -1072,6 +1074,7 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
                     .name = child->busDescription + " (" + child->description + ")",
                     .serial = child->serial,
                     .location = child->location,
+                    .portChain = child->usbPortChain,
                     .paths = child->driveLetters,
                     .port = child->port,
                     ._raw = child->instanceId,
@@ -1086,15 +1089,6 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
             std::cerr << "Failed to create FreeWiliDevice: " << result.error() << std::endl;
         }
     }
-    // Sort the devices by serial number
-    std::sort(
-        fwDevices.begin(),
-        fwDevices.end(),
-        [](const Fw::FreeWiliDevice& lhs, const Fw::FreeWiliDevice& rhs) {
-            // order smallest to largest
-            return lhs.serial < rhs.serial;
-        }
-    );
 
     return fwDevices;
 }
@@ -1188,6 +1182,16 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     } else {
         return std::unexpected(result.error());
     }
+
+    // Sort the devices by unique ID
+    std::sort(
+        devices.begin(),
+        devices.end(),
+        [](const Fw::FreeWiliDevice& lhs, const Fw::FreeWiliDevice& rhs) {
+            // order smallest to largest
+            return lhs.uniqueID < rhs.uniqueID;
+        }
+    );
     return devices;
 }
 

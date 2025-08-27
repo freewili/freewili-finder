@@ -134,10 +134,10 @@ auto usbPortChainFromUdevDevice(udev_device* dev) -> std::vector<uint32_t> {
     }
 
     std::vector<uint32_t> portChain;
-    
+
     // Start with the current device and walk up the tree
     udev_device* current = dev;
-    
+
     while (current) {
         std::string sysnum;
         if (const char* value = udev_device_get_sysnum(current); value) {
@@ -146,7 +146,7 @@ auto usbPortChainFromUdevDevice(udev_device* dev) -> std::vector<uint32_t> {
         if (sysnum.empty()) {
             break;
         }
-        
+
         try {
             uint32_t num = static_cast<uint32_t>(std::stoul(sysnum));
             portChain.push_back(num);
@@ -154,18 +154,19 @@ auto usbPortChainFromUdevDevice(udev_device* dev) -> std::vector<uint32_t> {
             break;
         }
 
-        udev_device* parent = udev_device_get_parent_with_subsystem_devtype(current, "usb", "usb_device");
+        udev_device* parent =
+            udev_device_get_parent_with_subsystem_devtype(current, "usb", "usb_device");
         if (!parent) {
             break;
         }
-        
+
         // Move up to the parent for next iteration
         current = parent;
     }
-    
+
     // Reverse the chain so it goes from root to leaf
     std::reverse(portChain.begin(), portChain.end());
-    
+
     return portChain;
 }
 
@@ -387,7 +388,7 @@ auto _find_all_standalone(
     udev_enumerate_unref(enumerate);
     udev_unref(udev);
 
-    // Sort the devices by UniqueID instead of serial number
+    // Sort the devices by UniqueID
     std::sort(
         fwDevices.begin(),
         fwDevices.end(),
@@ -569,6 +570,15 @@ auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> 
     } else {
         return std::unexpected(result.error());
     }
+    // Sort the devices by unique ID
+    std::sort(
+        devices.begin(),
+        devices.end(),
+        [](const Fw::FreeWiliDevice& lhs, const Fw::FreeWiliDevice& rhs) {
+            // order smallest to largest
+            return lhs.uniqueID < rhs.uniqueID;
+        }
+    );
     return devices;
 }
 
