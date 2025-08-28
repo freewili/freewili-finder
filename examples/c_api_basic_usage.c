@@ -45,23 +45,26 @@ int main(void) {
         char name[128] = { 0 };
         char serial[128] = { 0 };
         char type[128] = { 0 };
+        uint32_t name_size = sizeof(name);
+        uint32_t serial_size = sizeof(serial);
+        uint32_t type_size = sizeof(type);
         bool is_standalone = false;
         uint64_t unique_id = 0;
 
         // Get device name and serial
-        err = fw_device_get_str(devices[i], fw_stringtype_name, name, sizeof(name));
+        err = fw_device_get_str(devices[i], fw_stringtype_name, name, &name_size);
         if (err != fw_error_success) {
             printf("Device %u: Failed to get device name\n", i + 1);
             continue;
         }
 
-        err = fw_device_get_str(devices[i], fw_stringtype_serial, serial, sizeof(serial));
+        err = fw_device_get_str(devices[i], fw_stringtype_serial, serial, &serial_size);
         if (err != fw_error_success) {
             printf("Device %u: Failed to get device serial\n", i + 1);
             continue;
         }
 
-        err = fw_device_get_str(devices[i], fw_stringtype_type, type, sizeof(type));
+        err = fw_device_get_str(devices[i], fw_stringtype_type, type, &type_size);
         if (err != fw_error_success) {
             printf("Device %u: Failed to get device type\n", i + 1);
             continue;
@@ -178,15 +181,17 @@ fw_error_t print_usb_device(fw_freewili_device_t* device) {
 
     char usb_name[128] = { 0 };
     char usb_serial[128] = { 0 };
+    uint32_t size = sizeof(usb_name);
     uint32_t vid = 0, pid = 0, location = 0;
 
     // Get USB device strings
-    fw_error_t err = fw_usb_device_get_str(device, fw_stringtype_name, usb_name, sizeof(usb_name));
+    fw_error_t err = fw_usb_device_get_str(device, fw_stringtype_name, usb_name, &size);
     if (err != fw_error_success) {
         return err;
     }
 
-    err = fw_usb_device_get_str(device, fw_stringtype_serial, usb_serial, sizeof(usb_serial));
+    size = sizeof(usb_serial);
+    err = fw_usb_device_get_str(device, fw_stringtype_serial, usb_serial, &size);
     if (err != fw_error_success) {
         return err;
     }
@@ -226,13 +231,15 @@ fw_error_t print_usb_device(fw_freewili_device_t* device) {
 
     // Try to get port information (for serial devices)
     char port[128] = { 0 };
-    if (fw_usb_device_get_str(device, fw_stringtype_port, port, sizeof(port)) == fw_error_success) {
+    uint32_t port_size = sizeof(port);
+    if (fw_usb_device_get_str(device, fw_stringtype_port, port, &port_size) == fw_error_success) {
         printf("      Port: %s\n", port);
     }
 
     // Try to get path information (for mass storage devices)
     char path[256] = { 0 };
-    if (fw_usb_device_get_str(device, fw_stringtype_path, path, sizeof(path)) == fw_error_success) {
+    uint32_t path_size = sizeof(path);
+    if (fw_usb_device_get_str(device, fw_stringtype_path, path, &path_size) == fw_error_success) {
         printf("      Path: %s\n", path);
     }
 

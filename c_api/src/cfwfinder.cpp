@@ -107,9 +107,9 @@ CFW_FINDER_API fw_error_t fw_device_get_str(
     fw_freewili_device_t* device,
     fw_stringtype_t str_type,
     char* const value,
-    uint32_t value_size
+    uint32_t* value_size
 ) {
-    if (device == nullptr || value == nullptr || value_size == 0) {
+    if (device == nullptr || value == nullptr || value_size == nullptr || value_size == nullptr) {
         return fw_error_invalid_parameter;
     }
 
@@ -118,8 +118,7 @@ CFW_FINDER_API fw_error_t fw_device_get_str(
     }
 
     auto copy_value = [&value, &value_size](const std::string& str) {
-        uint32_t size = value_size;
-        if (fixedStringCopy(value, &size, str).has_value()) {
+        if (fixedStringCopy(value, value_size, str).has_value()) {
             return fw_error_success;
         } else {
             return fw_error_memory;
@@ -393,9 +392,9 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_str(
     fw_freewili_device_t* device,
     fw_stringtype_t str_type,
     char* const value,
-    uint32_t value_size
+    uint32_t* value_size
 ) {
-    if (device == nullptr || value == nullptr || value_size == 0) {
+    if (device == nullptr || value == nullptr || value_size == nullptr) {
         return fw_error_invalid_parameter;
     }
 
@@ -410,8 +409,7 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_str(
     const auto& usbDevice = *device->usbDevicesIter;
 
     auto copy_value = [&value, &value_size](const std::string& str) {
-        uint32_t size = value_size;
-        if (fixedStringCopy(value, &size, str).has_value()) {
+        if (fixedStringCopy(value, value_size, str).has_value()) {
             return fw_error_success;
         } else {
             return fw_error_memory;
@@ -475,5 +473,35 @@ fw_usb_device_get_int(fw_freewili_device_t* device, fw_inttype_t int_type, uint3
             *value = usbDevice.location;
             break;
     }
+    return fw_error_success;
+}
+
+CFW_FINDER_API fw_error_t fw_usb_device_get_port_chain(
+    fw_freewili_device_t* device,
+    uint32_t* port_chain,
+    uint32_t* port_chain_size
+) {
+    if (device == nullptr || port_chain == nullptr || port_chain_size == nullptr) {
+        return fw_error_invalid_parameter;
+    }
+
+    if (!fw_device_is_valid(device)) {
+        return fw_error_invalid_device;
+    }
+
+    if (device->usbDevicesIter == device->device.usbDevices.end()) {
+        return fw_error_no_more_devices; // No more USB devices to enumerate
+    }
+
+    // Get the port chain and check its size
+    const auto& portChain = device->usbDevicesIter->portChain;
+    if (portChain.size() >= *port_chain_size) {
+        return fw_error_memory;
+    }
+
+    // Finally copy over to the array and size
+    std::copy(portChain.begin(), portChain.end(), port_chain);
+    *port_chain_size = portChain.size();
+
     return fw_error_success;
 }

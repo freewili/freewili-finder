@@ -119,14 +119,6 @@ typedef enum _fw_usbdevice_set_t {
 typedef uint32_t fw_usbdevice_iter_set_t;
 
 /**
- * @brief Opaque type for a C++ FreeWiliDevice.
- *
- * This type is used to represent a FreeWiLi device in the C API.
- * It is an opaque type, meaning its internal structure is not exposed.
- */
-typedef struct fw_usbdevice_t fw_usbdevice_t;
-
-/**
  * @brief Opaque type for a C++ USB device.
  *
  * This type is used to represent a USB device in the C API.
@@ -200,7 +192,7 @@ CFW_FINDER_API fw_error_t fw_device_get_str(
     fw_freewili_device_t* device,
     fw_stringtype_t str_type,
     char* const value,
-    uint32_t value_size
+    uint32_t* value_size
 );
 
 /**
@@ -301,7 +293,7 @@ CFW_FINDER_API fw_error_t fw_usb_device_next(fw_freewili_device_t* device);
     *
     * @return fw_error_success on success, or an error code on failure. fw_error_no_more_devices if there are no more USB devices to enumerate.
     *
-    * @note This function doesn't need fw_usb_device_begin to be called first. This interrupts the iterator state, 
+    * @note This function doesn't need fw_usb_device_begin to be called first. This interrupts the iterator state,
     *       fw_usb_device_begin should be called again if fw_usb_device_next needs to be used.
     *       It will return the Main USB device or an error if there are no more devices.
     *
@@ -363,10 +355,10 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_type_name(
  * This function retrieves a string value of the specified type from the given USB device.
  * The retrieved value is stored in the provided buffer, which must be large enough to hold the string.
  *
- * @param usb_device Pointer to the fw_usbdevice_t from which to retrieve the string.
+ * @param device Pointer to the fw_freewili_device_t from which to retrieve the string.
  * @param str_type   The type of string to retrieve (e.g., name, serial).
  * @param value      Pointer to a buffer where the retrieved string will be stored.
- * @param size       The size of the buffer in bytes.
+ * @param value_size       The size of the buffer in bytes.
  *
  * @return true if the operation was successful, false otherwise.
  */
@@ -374,7 +366,7 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_str(
     fw_freewili_device_t* device,
     fw_stringtype_t str_type,
     char* const value,
-    uint32_t size
+    uint32_t* value_size
 );
 
 /**
@@ -383,7 +375,7 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_str(
  * This function retrieves an integer value of the specified type from the given USB device.
  * The retrieved value is stored in the provided pointer.
  *
- * @param usb_device Pointer to the fw_usbdevice_t from which to retrieve the integer.
+ * @param device Pointer to the fw_freewili_device_t from which to retrieve the integer.
  * @param int_type   The type of integer to retrieve (e.g., VID, PID, location).
  * @param value      Pointer to a uint32_t where the retrieved integer will be stored.
  *
@@ -391,6 +383,24 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_str(
  */
 CFW_FINDER_API fw_error_t
 fw_usb_device_get_int(fw_freewili_device_t* device, fw_inttype_t int_type, uint32_t* value);
+
+/**
+ * @brief Retrieves the port chain of a USB device.
+ *
+ * This function retrieves the port chain of the specified USB device.
+ * The retrieved value is stored in the provided buffer, which must be large enough to hold the port chain.
+ *
+ * @param device Pointer to the fw_freewili_device_t from which to retrieve the port chain.
+ * @param port_chain Pointer to a buffer where the retrieved port chain will be stored.
+ * @param port_chain_size Pointer to a uint32_t that will be updated with the size of the port chain buffer.
+ *
+ * @return true if the operation was successful, false otherwise.
+ */
+CFW_FINDER_API fw_error_t fw_usb_device_get_port_chain(
+    fw_freewili_device_t* device,
+    uint32_t* port_chain,
+    uint32_t* port_chain_size
+);
 
 #ifdef __cplusplus
 }

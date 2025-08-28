@@ -36,15 +36,17 @@ TEST(CFwFinderCAPI, DeviceFree_InvalidParams) {
 
 TEST(CFwFinderCAPI, DeviceGetStr_InvalidParams) {
     char buf[32];
+    uint32_t buf_size = sizeof(buf);
     fw_error_t err;
 
     // Null device
-    err = fw_device_get_str(nullptr, fw_stringtype_name, buf, sizeof(buf));
+    err = fw_device_get_str(nullptr, fw_stringtype_name, buf, &buf_size);
     ASSERT_EQ(err, fw_error_invalid_parameter);
 
     // Null buffer
     fw_freewili_device_t* dummy = nullptr;
-    err = fw_device_get_str(dummy, fw_stringtype_name, nullptr, sizeof(buf));
+    buf_size = sizeof(buf);
+    err = fw_device_get_str(dummy, fw_stringtype_name, nullptr, &buf_size);
     ASSERT_EQ(err, fw_error_invalid_parameter);
 
     // Zero buffer size
@@ -68,14 +70,18 @@ TEST(CFwFinderCAPI, FindAllDevices_ActualDevice) {
         ASSERT_TRUE(fw_device_is_valid(devices[i])) << "Device at index " << i << " is not valid.";
 
         char name[64] = { 0 };
-        err = fw_device_get_str(devices[i], fw_stringtype_name, name, sizeof(name));
+        uint32_t name_size = sizeof(name);
+        err = fw_device_get_str(devices[i], fw_stringtype_name, name, &name_size);
         ASSERT_EQ(err, fw_error_success) << "Failed to get name for device at index " << i;
-        ASSERT_GT(strlen(name), 0) << "Device at index " << i << " has an empty name.";
+        ASSERT_EQ(strlen(name), name_size - 1)
+            << "Device at index " << i << " has an incorrect name size.";
 
         char serial[64] = { 0 };
-        err = fw_device_get_str(devices[i], fw_stringtype_serial, serial, sizeof(serial));
+        uint32_t serial_size = sizeof(serial);
+        err = fw_device_get_str(devices[i], fw_stringtype_serial, serial, &serial_size);
         ASSERT_EQ(err, fw_error_success) << "Failed to get serial for device at index " << i;
-        ASSERT_GT(strlen(serial), 0) << "Device at index " << i << " has an empty serial.";
+        ASSERT_EQ(strlen(serial), serial_size - 1)
+            << "Device at index " << i << " has an incorrect serial size.";
         printf("Device %u: Name: %s, Serial: %s\n", i, name, serial);
     }
 
@@ -105,12 +111,14 @@ TEST(CFwFinderCAPI, UsbDeviceEnum_InvalidParams) {
 TEST(CFwFinderCAPI, UsbDeviceGetStr_InvalidParams) {
     fw_error_t err;
     char buf[32];
+    uint32_t buf_size = sizeof(buf);
     // Null device
-    err = fw_usb_device_get_str(nullptr, fw_stringtype_name, buf, sizeof(buf));
+    err = fw_usb_device_get_str(nullptr, fw_stringtype_name, buf, &buf_size);
     ASSERT_EQ(err, fw_error_invalid_parameter);
     // Null buffer
     fw_freewili_device_t* dummy = nullptr;
-    err = fw_usb_device_get_str(dummy, fw_stringtype_name, nullptr, sizeof(buf));
+    buf_size = sizeof(buf);
+    err = fw_usb_device_get_str(dummy, fw_stringtype_name, nullptr, &buf_size);
     ASSERT_EQ(err, fw_error_invalid_parameter);
     // Zero buffer size
     err = fw_usb_device_get_str(dummy, fw_stringtype_name, buf, 0);
@@ -120,14 +128,16 @@ TEST(CFwFinderCAPI, UsbDeviceGetStr_InvalidParams) {
 TEST(CFwFinderCAPI, UsbDeviceGetStr_TypeString_InvalidParams) {
     fw_error_t err;
     char buf[64];
+    uint32_t buf_size = sizeof(buf);
 
     // Test with null device
-    err = fw_usb_device_get_str(nullptr, fw_stringtype_type, buf, sizeof(buf));
+    err = fw_usb_device_get_str(nullptr, fw_stringtype_type, buf, &buf_size);
     ASSERT_EQ(err, fw_error_invalid_parameter);
 
     // Test with null buffer
     fw_freewili_device_t* dummy = nullptr;
-    err = fw_usb_device_get_str(dummy, fw_stringtype_type, nullptr, sizeof(buf));
+    buf_size = sizeof(buf);
+    err = fw_usb_device_get_str(dummy, fw_stringtype_type, nullptr, &buf_size);
     ASSERT_EQ(err, fw_error_invalid_parameter);
 
     // Test with zero buffer size
@@ -169,17 +179,19 @@ TEST(CFwFinderCAPI, UsbDeviceEnumeration_IfDeviceFound) {
         ASSERT_GT(usb_count, 0) << "Device at index " << i << " has 0 USB device count.";
         for (uint32_t j = 0; j < usb_count; ++j) {
             char usb_name[64] = { 0 };
-            err = fw_usb_device_get_str(devices[i], fw_stringtype_name, usb_name, sizeof(usb_name));
+            uint32_t usb_size = sizeof(usb_name);
+            err = fw_usb_device_get_str(devices[i], fw_stringtype_name, usb_name, &usb_size);
             ASSERT_EQ(err, fw_error_success);
             // Optionally print or check values
             printf("Device %u USB %u: Name: %s\n", i, j, usb_name);
             // Get the USB device serial
             char usb_serial[64] = { 0 };
+            uint32_t usb_serial_size = sizeof(usb_serial);
             err = fw_usb_device_get_str(
                 devices[i],
                 fw_stringtype_serial,
                 usb_serial,
-                sizeof(usb_serial)
+                &usb_serial_size
             );
             ASSERT_EQ(err, fw_error_success);
             printf("Device %u USB %u: Serial: %s\n", i, j, usb_serial);
@@ -211,15 +223,22 @@ TEST(CFwFinderCAPI, UsbDeviceEnumeration_IfDeviceFound) {
 
             // Test getting USB device type as string
             char usb_type_str[64] = { 0 };
+            uint32_t usb_type_str_size = sizeof(usb_type_str);
             err = fw_usb_device_get_str(
                 devices[i],
                 fw_stringtype_type,
                 usb_type_str,
-                sizeof(usb_type_str)
+                &usb_type_str_size
             );
             ASSERT_EQ(err, fw_error_success);
             ASSERT_GT(strlen(usb_type_str), 0) << "USB device type string should not be empty";
             printf("Device %u USB %u: Type String: %s\n", i, j, usb_type_str);
+
+            uint32_t usb_port_chain[10] = { 0 };
+            uint32_t usb_port_chain_size = sizeof(usb_port_chain);
+            err = fw_usb_device_get_port_chain(devices[i], usb_port_chain, &usb_port_chain_size);
+            ASSERT_EQ(err, fw_error_success);
+            ASSERT_GT(usb_port_chain_size, 0) << "USB port chain should not be empty";
 
             // Move to the next USB device
             err = fw_usb_device_next(devices[i]);

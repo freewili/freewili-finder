@@ -20,13 +20,19 @@ TEST(FwFinder, ExpectedHardware) {
 
     for (const auto& device: results.value()) {
         if (device.deviceType == Fw::DeviceType::FreeWili) {
+            ASSERT_EQ(device.standalone, false)
+                << "Expected non-standalone mode for FreeWili device";
             // Verify we found a FreeWili device successfully.
-            ASSERT_EQ(device.usbDevices.size(), 4)
-                << "Expected exactly four USB devices for FreeWili device";
+            ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::SerialMain).size(), 1)
+                << "Expected one USB SerialMain device";
+            ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::SerialDisplay).size(), 1)
+                << "Expected one USB SerialDisplay device";
             ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::Hub).size(), 1)
                 << "Expected one USB Hub device";
             ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::FTDI).size(), 1)
                 << "Expected one USB FTDI device";
+            ASSERT_EQ(device.usbDevices.size(), 4)
+                << "Expected exactly four USB devices for FreeWili device";
             auto serialMain = device.getUSBDevices(Fw::USBDeviceType::SerialMain);
             auto serialDisplay = device.getUSBDevices(Fw::USBDeviceType::SerialDisplay);
             auto massStorage = device.getUSBDevices(Fw::USBDeviceType::MassStorage);
@@ -61,6 +67,7 @@ TEST(FwFinder, ExpectedHardware) {
                    || device.deviceType == Fw::DeviceType::DEFCON2025FwBadge
                    || device.deviceType == Fw::DeviceType::Winky)
         {
+            ASSERT_EQ(device.standalone, true) << "Expected standalone mode for DEFCON badge";
             // Verify we found a DEFCON badge device successfully.
             ASSERT_EQ(device.usbDevices.size(), 1) << "Expected exactly one USB device for badge";
             ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::SerialMain).size(), 1)
@@ -76,6 +83,10 @@ TEST(FwFinder, ExpectedHardware) {
             // For other types, we can just log the type
             std::cout << "Found device of type: " << Fw::getDeviceTypeName(device.deviceType)
                       << std::endl;
+        }
+        for (const auto& usbDevice: device.usbDevices) {
+            ASSERT_GT(usbDevice.portChain.size(), 0)
+                << "Expected non-empty port chain for usbDevice";
         }
     }
 }
