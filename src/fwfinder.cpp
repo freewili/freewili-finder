@@ -37,7 +37,7 @@ bool Fw::isStandAloneDevice(uint16_t vid, uint16_t pid) {
                 || pid == Fw::USB_PID_FW_DEFCON_BADGE_2025));
 }
 
-auto Fw::getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid) -> Fw::USBDeviceType {
+auto Fw::getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid, uint32_t location) -> Fw::USBDeviceType {
     static std::map<std::tuple<uint16_t, uint16_t>, Fw::USBDeviceType> usbDeviceTypeMap = {
         { { USB_VID_FW_HUB, USB_PID_FW_HUB }, Fw::USBDeviceType::Hub },
         { { USB_VID_FW_FTDI, USB_PID_FW_FTDI }, Fw::USBDeviceType::FTDI },
@@ -52,6 +52,14 @@ auto Fw::getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid) -> Fw::USBDeviceType {
     };
 
     if (auto it = usbDeviceTypeMap.find({ vid, pid }); it != usbDeviceTypeMap.end()) {
+        if (it->second == Fw::USBDeviceType::Serial) {
+            // Further refine Serial type based on location for older firmware
+            if (location == static_cast<uint32_t>(Fw::USBHubPortLocation::Main)) {
+                return Fw::USBDeviceType::SerialMain;
+            } else if (location == static_cast<uint32_t>(Fw::USBHubPortLocation::Display)) {
+                return Fw::USBDeviceType::SerialDisplay;
+            }
+        }
         return it->second;
     }
     return Fw::USBDeviceType::Other;

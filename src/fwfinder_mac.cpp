@@ -448,7 +448,7 @@ static auto _find_all_fw_classic() noexcept -> std::expected<Fw::FreeWiliDevices
                 }
 
                 Fw::USBDevice childUSBDevice {
-                    .kind = Fw::getUSBDeviceTypeFrom(childVid, childPid),
+                    .kind = Fw::getUSBDeviceTypeFrom(childVid, childPid, childAddr),
                     .vid = childVid,
                     .pid = childPid,
                     .name = childManuName + " " + childProductName,
@@ -570,7 +570,7 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
             containerId + "_" + serial + "_" + std::to_string(vid) + "_" + std::to_string(pid);
 
         standaloneDevices[deviceKey].push_back(
-            Fw::USBDevice { .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
+            Fw::USBDevice { .kind = Fw::getUSBDeviceTypeFrom(vid, pid, getUSBPortFromLocationID(addr)),
                             .vid = vid,
                             .pid = pid,
                             .name = manuName + " " + productName,
