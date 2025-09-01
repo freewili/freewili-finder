@@ -62,6 +62,7 @@ NB_MODULE(pyfwfinder, m) {
         .def_ro("name", &Fw::USBDevice::name)
         .def_ro("serial", &Fw::USBDevice::serial)
         .def_ro("location", &Fw::USBDevice::location)
+        .def_ro("port_chain", &Fw::USBDevice::portChain)
         .def_ro("paths", &Fw::USBDevice::paths)
         .def_ro("port", &Fw::USBDevice::port)
         .def_ro("_raw", &Fw::USBDevice::_raw);
