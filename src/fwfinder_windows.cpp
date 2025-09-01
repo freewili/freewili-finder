@@ -1053,7 +1053,7 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
 
         devices.push_back(
             Fw::USBDevice {
-                .kind = Fw::getUSBDeviceTypeFrom(hub.first->vid, hub.first->pid),
+                .kind = Fw::getUSBDeviceTypeFrom(hub.first->vid, hub.first->pid, hub.first->location),
                 .vid = hub.first->vid,
                 .pid = hub.first->pid,
                 .name = hub.first->busDescription + " (" + hub.first->description + ")",
@@ -1068,7 +1068,7 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
         for (auto&& child: hub.second) {
             devices.push_back(
                 Fw::USBDevice {
-                    .kind = Fw::getUSBDeviceTypeFrom(child->vid, child->pid),
+                    .kind = Fw::getUSBDeviceTypeFrom(child->vid, child->pid, child->location),
                     .vid = child->vid,
                     .pid = child->pid,
                     .name = child->busDescription + " (" + child->description + ")",
@@ -1142,7 +1142,7 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
         USBDevices devices;
         devices.push_back(
             Fw::USBDevice {
-                .kind = Fw::getUSBDeviceTypeFrom(device.second->vid, device.second->pid),
+                .kind = Fw::getUSBDeviceTypeFrom(device.second->vid, device.second->pid, device.second->location),
                 .vid = device.second->vid,
                 .pid = device.second->pid,
                 .name = device.second->busDescription + " (" + device.second->description + ")",

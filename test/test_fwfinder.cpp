@@ -8,31 +8,41 @@
 
 TEST(FwFinder, getUSBDeviceTypeFrom) {
     ASSERT_EQ(
-        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_HUB, Fw::USB_PID_FW_HUB),
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_HUB, Fw::USB_PID_FW_HUB, 0),
         Fw::USBDeviceType::Hub
     );
 
     ASSERT_EQ(
-        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_FTDI, Fw::USB_PID_FW_FTDI),
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_FTDI, Fw::USB_PID_FW_FTDI, 0),
         Fw::USBDeviceType::FTDI
     );
 
     ASSERT_EQ(
-        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_CDC_PID),
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_CDC_PID, 0),
         Fw::USBDeviceType::Serial
     );
 
     ASSERT_EQ(
-        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2040_UF2_PID),
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_CDC_PID, static_cast<uint32_t>(Fw::USBHubPortLocation::Main)),
+        Fw::USBDeviceType::SerialMain
+    );
+
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_CDC_PID, static_cast<uint32_t>(Fw::USBHubPortLocation::Display)),
+        Fw::USBDeviceType::SerialDisplay
+    );
+
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2040_UF2_PID, 0),
         Fw::USBDeviceType::MassStorage
     );
 
     ASSERT_EQ(
-        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2350_UF2_PID),
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2350_UF2_PID, 0),
         Fw::USBDeviceType::MassStorage
     );
 
-    ASSERT_EQ(Fw::getUSBDeviceTypeFrom(0, 0), Fw::USBDeviceType::Other);
+    ASSERT_EQ(Fw::getUSBDeviceTypeFrom(0, 0, 0), Fw::USBDeviceType::Other);
 }
 
 TEST(FwFinder, getUSBDeviceTypeName) {

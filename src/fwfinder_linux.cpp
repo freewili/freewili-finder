@@ -264,7 +264,7 @@ auto _createUSBDeviceFromUDevDevice(
     }
 
     return Fw::USBDevice {
-        .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
+        .kind = Fw::getUSBDeviceTypeFrom(vid, pid, location),
         .vid = vid,
         .pid = pid,
         .name = deviceName,
@@ -357,7 +357,7 @@ auto _find_all_standalone(
         // Add the standalone device
         devices.push_back(
             Fw::USBDevice {
-                .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
+                .kind = Fw::getUSBDeviceTypeFrom(vid, pid, deviceLocation),
                 .vid = vid,
                 .pid = pid,
                 .name = manufacturer.empty() ? productName : manufacturer + " " + productName,
@@ -460,7 +460,7 @@ auto _find_all_freewili(
                 });
             foundUsbDevices.push_back(
                 USBDevice {
-                    .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
+                    .kind = Fw::getUSBDeviceTypeFrom(vid, pid, location),
                     .vid = vid,
                     .pid = pid,
                     .name = manufacturer + " " + productName,
@@ -521,7 +521,7 @@ auto _find_all_freewili(
         if (idVendor == targetHubVid && idProduct == targetHubPid) {
             std::string hubSysPath = udev_device_get_syspath(dev);
             auto hubDevice = USBDevice {
-                .kind = Fw::getUSBDeviceTypeFrom(vid, pid),
+                .kind = Fw::getUSBDeviceTypeFrom(vid, pid, location),
                 .vid = vid,
                 .pid = pid,
                 .name = productName,
