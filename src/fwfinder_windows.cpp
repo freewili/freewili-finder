@@ -299,14 +299,20 @@ auto _getDevicePropertyMultiSz(DEVINST devInst, const DEVPROPKEY key) noexcept
 // "PCIROOT(0)#PCI(1400)#USBROOT(0)#USB(3)#USB(2)#USB(4)" -> {3,2,4}
 auto _extractUSBPortChainFromLocationPaths(const std::vector<std::string>& paths) noexcept
     -> std::vector<uint32_t> {
-    std::regex usbRegex(R"(USB\((\d+)\))", std::regex_constants::icase);
+    std::regex usbRegex(R"((?:PCI|USB)\((\d+)\))", std::regex_constants::icase);
     for (auto const& p: paths) {
         std::sregex_iterator it(p.begin(), p.end(), usbRegex), end;
         std::vector<uint32_t> chain;
         for (; it != end; ++it) {
             try {
                 auto v = static_cast<uint32_t>(std::stoul((*it)[1].str()));
-                chain.push_back(v);
+                // PCI doesn't seem to have the locationID port that we need but we don't have
+                // the root hub "location". The last PCI entry seems to be okay for this.
+                if (v >= 32 && it->str().contains("PCI")) {
+                    continue;
+                } else {
+                    chain.push_back(v);
+                }
             } catch (...) {
                 // Ignore bad conversions
             }
