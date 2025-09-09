@@ -170,6 +170,8 @@ CFW_FINDER_API bool fw_device_is_valid(fw_freewili_device_t* device);
  * This function frees the memory allocated for the array of fw_freewili_device_t pointers
  * and each individual device within that array.
  *
+ * Note: If devices is NULL AND count is 0, all devices will be freed.
+ *
  * @param devices Pointer to an array of fw_freewili_device_t pointers to be freed.
  * @param count   The number of devices in the array.
  */

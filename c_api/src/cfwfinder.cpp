@@ -43,6 +43,7 @@ CFW_FINDER_API fw_error_t fw_device_find_all(
         }
     }
 
+    // Add or update the found devices
     for (const auto& device: found_fw_devices.value()) {
         if (std::none_of(
                 fw_devices.begin(),
@@ -54,8 +55,38 @@ CFW_FINDER_API fw_error_t fw_device_find_all(
         {
             // Device not found in the existing list, add it
             fw_devices.push_back(std::make_shared<fw_freewili_device_t>(device));
+        } else {
+            // Device already exists, update its information
+            auto it = std::find_if(
+                fw_devices.begin(),
+                fw_devices.end(),
+                [&device](const std::shared_ptr<fw_freewili_device_t> fw_device) {
+                    return *fw_device == device;
+                }
+            );
+            if (it != fw_devices.end()) {
+                (*it)->device = device; // Update the device information
+            }
         }
     }
+
+    // Remove devices that are no longer present
+    fw_devices.erase(
+        std::remove_if(
+            fw_devices.begin(),
+            fw_devices.end(),
+            [&found_fw_devices](const std::shared_ptr<fw_freewili_device_t>& fw_device) {
+                return std::none_of(
+                    found_fw_devices.value().begin(),
+                    found_fw_devices.value().end(),
+                    [&fw_device](const FreeWiliDevice& device) {
+                        return *fw_device == device;
+                    }
+                );
+            }
+        ),
+        fw_devices.end()
+    );
 
     auto min_size = std::minmax(*count, static_cast<uint32_t>(fw_devices.size())).first;
     *count = min_size;
@@ -81,6 +112,10 @@ CFW_FINDER_API bool fw_device_is_valid(fw_freewili_device_t* device) {
 }
 
 CFW_FINDER_API fw_error_t fw_device_free(fw_freewili_device_t** devices, uint32_t count) {
+    if (devices == nullptr && count == 0) {
+        fw_devices.clear();
+        return fw_error_success;
+    }
     if (devices == nullptr || count == 0) {
         return fw_error_invalid_parameter;
     }
