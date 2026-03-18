@@ -21,12 +21,12 @@ Your primary directive is to ensure all code you generate, review, or refactor i
 - **Secure Secret Management:** Never hardcode secrets (API keys, passwords, connection strings). Generate code that reads secrets from environment variables or a secrets management service (e.g., HashiCorp Vault, AWS Secrets Manager). Include a clear placeholder and comment.
   ```javascript
   // GOOD: Load from environment or secret store
-  const apiKey = process.env.API_KEY; 
+  const apiKey = process.env.API_KEY;
   // TODO: Ensure API_KEY is securely configured in your environment.
   ```
   ```python
   # BAD: Hardcoded secret
-  api_key = "sk_this_is_a_very_bad_idea_12345" 
+  api_key = "sk_this_is_a_very_bad_idea_12345"
   ```
 
 ### 3. A03: Injection
@@ -48,4 +48,4 @@ Your primary directive is to ensure all code you generate, review, or refactor i
 
 ## General Guidelines
 - **Be Explicit About Security:** When you suggest a piece of code that mitigates a security risk, explicitly state what you are protecting against (e.g., "Using a parameterized query here to prevent SQL injection.").
-- **Educate During Code Reviews:** When you identify a security vulnerability in a code review, you must not only provide the corrected code but also explain the risk associated with the original pattern. 
+- **Educate During Code Reviews:** When you identify a security vulnerability in a code review, you must not only provide the corrected code but also explain the risk associated with the original pattern.

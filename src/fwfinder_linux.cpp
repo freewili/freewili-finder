@@ -101,14 +101,12 @@ auto _listDisks() noexcept -> std::vector<DiskInfo> {
             std::string serial = get_device_property(parent, "serial");
             std::string devPath = udev_device_get_syspath(parent);
 
-            foundDisks.push_back(
-                DiskInfo {
-                    .devPath = devPath,
-                    .diskName = devnode,
-                    .serial = serial,
-                    .mountPoints = mountPoints,
-                }
-            );
+            foundDisks.push_back(DiskInfo {
+                .devPath = devPath,
+                .diskName = devnode,
+                .serial = serial,
+                .mountPoints = mountPoints,
+            });
         }
         udev_device_unref(usbDisk);
     }
@@ -201,13 +199,11 @@ auto _listSerialPorts() noexcept -> std::vector<SerialInfo> {
         if (parent) {
             std::string serial = get_device_property(parent, "serial");
             std::string devPath = udev_device_get_syspath(parent);
-            foundSerials.push_back(
-                SerialInfo {
-                    .devPath = devPath,
-                    .ttyName = devNode,
-                    .serial = serial,
-                }
-            );
+            foundSerials.push_back(SerialInfo {
+                .devPath = devPath,
+                .ttyName = devNode,
+                .serial = serial,
+            });
         }
         udev_device_unref(tty);
     }
@@ -355,24 +351,22 @@ auto _find_all_standalone(
         USBDevices devices;
 
         // Add the standalone device
-        devices.push_back(
-            Fw::USBDevice {
-                .kind = Fw::getUSBDeviceTypeFrom(vid, pid, deviceLocation),
-                .vid = vid,
-                .pid = pid,
-                .name = manufacturer.empty() ? productName : manufacturer + " " + productName,
-                .serial = serial,
-                .location = static_cast<uint8_t>(deviceLocation),
-                .portChain = portChain,
-                .paths = diskIter == disks.end()
-                    ? std::nullopt
-                    : std::optional<std::vector<std::string>>(diskIter->mountPoints),
-                .port = serialIter == serialPorts.end()
-                    ? std::nullopt
-                    : std::optional<std::string>(serialIter->ttyName),
-                ._raw = devPath,
-            }
-        );
+        devices.push_back(Fw::USBDevice {
+            .kind = Fw::getUSBDeviceTypeFrom(vid, pid, deviceLocation),
+            .vid = vid,
+            .pid = pid,
+            .name = manufacturer.empty() ? productName : manufacturer + " " + productName,
+            .serial = serial,
+            .location = static_cast<uint8_t>(deviceLocation),
+            .portChain = portChain,
+            .paths = diskIter == disks.end()
+                ? std::nullopt
+                : std::optional<std::vector<std::string>>(diskIter->mountPoints),
+            .port = serialIter == serialPorts.end()
+                ? std::nullopt
+                : std::optional<std::string>(serialIter->ttyName),
+            ._raw = devPath,
+        });
 
         // Create FreeWili device from USB devices
         if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
@@ -458,24 +452,22 @@ auto _find_all_freewili(
                 std::find_if(serialPorts.begin(), serialPorts.end(), [&](const SerialInfo& serial) {
                     return devPath.contains(serial.devPath);
                 });
-            foundUsbDevices.push_back(
-                USBDevice {
-                    .kind = Fw::getUSBDeviceTypeFrom(vid, pid, location),
-                    .vid = vid,
-                    .pid = pid,
-                    .name = manufacturer + " " + productName,
-                    .serial = serial,
-                    .location = static_cast<uint8_t>(location),
-                    .portChain = portChain,
-                    .paths = diskPathIter == disks.end()
-                        ? std::nullopt
-                        : std::optional<std::vector<std::string>>(diskPathIter->mountPoints),
-                    .port = serialIter == serialPorts.end()
-                        ? std::nullopt
-                        : std::optional<std::string>(serialIter->ttyName),
-                    ._raw = devPath,
-                }
-            );
+            foundUsbDevices.push_back(USBDevice {
+                .kind = Fw::getUSBDeviceTypeFrom(vid, pid, location),
+                .vid = vid,
+                .pid = pid,
+                .name = manufacturer + " " + productName,
+                .serial = serial,
+                .location = static_cast<uint8_t>(location),
+                .portChain = portChain,
+                .paths = diskPathIter == disks.end()
+                    ? std::nullopt
+                    : std::optional<std::vector<std::string>>(diskPathIter->mountPoints),
+                .port = serialIter == serialPorts.end()
+                    ? std::nullopt
+                    : std::optional<std::string>(serialIter->ttyName),
+                ._raw = devPath,
+            });
             udev_device_unref(dev);
         }
         return foundUsbDevices;
