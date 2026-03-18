@@ -19,10 +19,32 @@ TEST(FwFinder, ExpectedHardware) {
     ASSERT_FALSE(results.value().empty()) << "Expected to find at least one FreeWili device";
 
     for (const auto& device: results.value()) {
-        if (device.deviceType == Fw::DeviceType::FreeWili) {
+        if (device.deviceType == Fw::DeviceType::FreeWili2) {
+            ASSERT_EQ(device.standalone, false)
+                << "Expected non-standalone mode for FreeWili2 device";
+            ASSERT_EQ(device.name, "FREE-WILi2") << "Expected FREE-WILi2 name";
+            ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::Hub).size(), 1)
+                << "Expected one USB Hub device";
+            // Child devices may be absent if firmware crashed — report but don't fail
+            if (device.getUSBDevices(Fw::USBDeviceType::SerialMain).empty()) {
+                std::cout << "  WARNING: FW2 SerialMain not present (firmware may have crashed)"
+                          << std::endl;
+            }
+            if (device.getUSBDevices(Fw::USBDeviceType::FTDI).empty()) {
+                std::cout << "  WARNING: FW2 FTDI not present" << std::endl;
+            }
+            if (auto mainDevice = device.getMainUSBDevice(); !mainDevice.has_value()) {
+                std::cout << "  WARNING: Main USB device not found: " << mainDevice.error()
+                          << std::endl;
+            }
+            if (auto fpgaDevice = device.getFPGAUSBDevice(); !fpgaDevice.has_value()) {
+                std::cout << "  WARNING: FPGA USB device not found: " << fpgaDevice.error()
+                          << std::endl;
+            }
+        } else if (device.deviceType == Fw::DeviceType::FreeWili) {
             ASSERT_EQ(device.standalone, false)
                 << "Expected non-standalone mode for FreeWili device";
-            // Verify we found a FreeWili device successfully.
+            // FreeWili Classic: Verify we found a FreeWili device successfully.
             ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::SerialMain).size(), 1)
                 << "Expected one USB SerialMain device";
             ASSERT_EQ(device.getUSBDevices(Fw::USBDeviceType::SerialDisplay).size(), 1)

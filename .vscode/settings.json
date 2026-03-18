@@ -8,5 +8,6 @@
     "editor.formatOnSave": true,
     "files.associations": {
         "expected": "cpp"
-    }
+    },
+    "cmake.generator": "Ninja"
 }
