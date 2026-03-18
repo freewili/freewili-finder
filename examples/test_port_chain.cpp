@@ -5,7 +5,7 @@
  * This example shows how the refactored locationID parsing works on macOS:
  * - Location: represents the actual port number on the immediate parent hub/controller
  * - PortChain: represents the full path from root hub to the device
- * 
+ *
  * Following the cyme project's approach for macOS USB location identification.
  */
 
@@ -29,18 +29,19 @@ int main() {
             std::cout << "  Serial: " << device.serial << std::endl;
             std::cout << "  USB Devices with Port Chain Analysis:" << std::endl;
 
-            for (const auto& usb : device.usbDevices) {
+            for (const auto& usb: device.usbDevices) {
                 std::cout << "    - " << usb.name << std::endl;
                 std::cout << "      Location (port): " << usb.location << std::endl;
                 std::cout << "      Port Chain: [";
                 for (size_t j = 0; j < usb.portChain.size(); ++j) {
                     std::cout << usb.portChain[j];
-                    if (j < usb.portChain.size() - 1) std::cout << ", ";
+                    if (j < usb.portChain.size() - 1)
+                        std::cout << ", ";
                 }
                 std::cout << "]" << std::endl;
                 std::cout << "      Type: " << Fw::getUSBDeviceTypeName(usb.kind) << std::endl;
-                std::cout << "      VID:PID: 0x" << std::hex << std::setw(4) << std::setfill('0') 
-                          << usb.vid << ":0x" << std::hex << std::setw(4) << std::setfill('0') 
+                std::cout << "      VID:PID: 0x" << std::hex << std::setw(4) << std::setfill('0')
+                          << usb.vid << ":0x" << std::hex << std::setw(4) << std::setfill('0')
                           << usb.pid << std::dec << std::endl;
                 std::cout << std::endl;
             }

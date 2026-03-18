@@ -23,12 +23,20 @@ TEST(FwFinder, getUSBDeviceTypeFrom) {
     );
 
     ASSERT_EQ(
-        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_CDC_PID, static_cast<uint32_t>(Fw::USBHubPortLocation::Main)),
+        Fw::getUSBDeviceTypeFrom(
+            Fw::USB_VID_FW_RPI,
+            Fw::USB_PID_FW_RPI_CDC_PID,
+            static_cast<uint32_t>(Fw::USBHubPortLocation::Main)
+        ),
         Fw::USBDeviceType::SerialMain
     );
 
     ASSERT_EQ(
-        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_CDC_PID, static_cast<uint32_t>(Fw::USBHubPortLocation::Display)),
+        Fw::getUSBDeviceTypeFrom(
+            Fw::USB_VID_FW_RPI,
+            Fw::USB_PID_FW_RPI_CDC_PID,
+            static_cast<uint32_t>(Fw::USBHubPortLocation::Display)
+        ),
         Fw::USBDeviceType::SerialDisplay
     );
 
@@ -39,6 +47,20 @@ TEST(FwFinder, getUSBDeviceTypeFrom) {
 
     ASSERT_EQ(
         Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2350_UF2_PID, 0),
+        Fw::USBDeviceType::MassStorage
+    );
+
+    // FREE-WILi2 type mappings
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_HUB, Fw::USB_PID_FW2_HUB, 0),
+        Fw::USBDeviceType::Hub
+    );
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_MAIN, Fw::USB_PID_FW2_MAIN, 0),
+        Fw::USBDeviceType::SerialMain
+    );
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_SDCARD, Fw::USB_PID_FW2_SDCARD, 0),
         Fw::USBDeviceType::MassStorage
     );
 
@@ -55,7 +77,7 @@ TEST(FwFinder, getUSBDeviceTypeName) {
 
 TEST(FwFinder, getDeviceTypeName) {
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::Unknown).c_str(), "Unknown");
-    ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::FreeWili).c_str(), "Free-WiLi");
+    ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::FreeWili).c_str(), "FREE-WILi");
     ASSERT_STREQ(
         Fw::getDeviceTypeName(Fw::DeviceType::DEFCON2024Badge).c_str(),
         "DEFCON 2024 Badge"
@@ -66,6 +88,7 @@ TEST(FwFinder, getDeviceTypeName) {
     );
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::UF2).c_str(), "UF2");
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::Winky).c_str(), "Winky");
+    ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::FreeWili2).c_str(), "FREE-WILi2");
 }
 
 TEST(FwFinder, BasicAssertions) {
@@ -121,6 +144,10 @@ TEST(FwFinder, isStandAloneDevice) {
     ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_MAIN_CDC_PID));
     ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_DISPLAY_CDC_PID));
 
+    // FREE-WILi2 hub is not standalone
+    ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW2_HUB, Fw::USB_PID_FW2_HUB));
+    ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW2_MAIN, Fw::USB_PID_FW2_MAIN));
+
     ASSERT_FALSE(Fw::isStandAloneDevice(0, 0));
 }
 
@@ -139,7 +166,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::Hub,
                                .vid = Fw::USB_VID_FW_HUB,
                                .pid = Fw::USB_PID_FW_HUB,
-                               .name = "Free-WiLi Hub",
+                               .name = "FREE-WILi Hub",
                                .serial = "HUB001",
                                .location = 3, // Hub is at the root level, not on a specific port
                                .portChain = { 1, 2, 3 },
@@ -155,7 +182,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::FTDI,
                                .vid = Fw::USB_VID_FW_FTDI,
                                .pid = Fw::USB_PID_FW_FTDI,
-                               .name = "Free-WiLi FTDI",
+                               .name = "FREE-WILi FTDI",
                                .serial = "FTDI001",
                                .location = 3,
                                .portChain = { 1, 2, 3 },
@@ -171,7 +198,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::SerialMain,
                                .vid = Fw::USB_VID_FW_ICS,
                                .pid = Fw::USB_PID_FW_MAIN_CDC_PID,
-                               .name = "Free-WiLi Main Serial",
+                               .name = "FREE-WILi Main Serial",
                                .serial = "MAIN001",
                                .location = 1,
                                .portChain = { 1, 2, 1 },
@@ -187,7 +214,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::SerialDisplay,
                                .vid = Fw::USB_VID_FW_ICS,
                                .pid = Fw::USB_PID_FW_DISPLAY_CDC_PID,
-                               .name = "Free-WiLi Display Serial",
+                               .name = "FREE-WILi Display Serial",
                                .serial = "DISP001",
                                .location = 2,
                                .portChain = { 1, 2, 2 },
@@ -203,7 +230,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::MassStorage,
                                .vid = Fw::USB_VID_FW_RPI,
                                .pid = Fw::USB_PID_FW_RPI_2040_UF2_PID,
-                               .name = "Free-WiLi Main Storage",
+                               .name = "FREE-WILi Main Storage",
                                .serial = "MASS001",
                                .location = 1,
                                .portChain = { 1, 2, 1 },
@@ -219,7 +246,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::MassStorage,
                                .vid = Fw::USB_VID_FW_RPI,
                                .pid = Fw::USB_PID_FW_RPI_2040_UF2_PID,
-                               .name = "Free-WiLi Display Storage",
+                               .name = "FREE-WILi Display Storage",
                                .serial = "MASS002",
                                .location = 2,
                                .portChain = { 1, 2, 2 },
@@ -513,4 +540,168 @@ TEST(FreeWiliDeviceTestSetupTest, DeviceTypes_AreCorrect) {
     EXPECT_FALSE(device->serial.empty());
     EXPECT_NE(device->uniqueID, std::numeric_limits<uint64_t>::max());
     EXPECT_FALSE(device->usbDevices.empty());
+}
+
+// ============================================================================
+// FREE-WILi2 Test Setup and Tests
+// ============================================================================
+
+class FW2DeviceTestSetup {
+public:
+    static Fw::USBDevice createFW2HubDevice() {
+        return Fw::USBDevice { .kind = Fw::USBDeviceType::Hub,
+                               .vid = Fw::USB_VID_FW2_HUB,
+                               .pid = Fw::USB_PID_FW2_HUB,
+                               .name = "FREE-WILi2 Hub",
+                               .serial = "FWTST1",
+                               .location = 1,
+                               .portChain = { 1 },
+                               .paths = std::nullopt,
+                               .port = std::nullopt,
+                               ._raw = "USB\\VID_093C&PID_2059\\FWTST1" };
+    }
+
+    static Fw::USBDevice createFW2MainDevice() {
+        return Fw::USBDevice { .kind = Fw::USBDeviceType::SerialMain,
+                               .vid = Fw::USB_VID_FW2_MAIN,
+                               .pid = Fw::USB_PID_FW2_MAIN,
+                               .name = "FW2 Main CDC",
+                               .serial = "C6ACB61A8BD41507",
+                               .location = 1,
+                               .portChain = { 1, 1 },
+                               .paths = std::nullopt,
+                               .port = std::string("COM3"),
+                               ._raw = "USB\\VID_093C&PID_2060\\C6ACB61A8BD41507" };
+    }
+
+    static Fw::USBDevice createFW2FTDIDevice() {
+        return Fw::USBDevice { .kind = Fw::USBDeviceType::FTDI,
+                               .vid = Fw::USB_VID_FW2_FTDI,
+                               .pid = Fw::USB_PID_FW2_FTDI,
+                               .name = "Single RS232-HS",
+                               .serial = "",
+                               .location = 3,
+                               .portChain = { 1, 3 },
+                               .paths = std::nullopt,
+                               .port = std::nullopt,
+                               ._raw = "USB\\VID_0403&PID_6014" };
+    }
+
+    static Fw::USBDevice createFW2ESP32Device() {
+        return Fw::USBDevice { .kind = Fw::USBDeviceType::ESP32,
+                               .vid = Fw::USB_VID_FW2_ESP32,
+                               .pid = Fw::USB_PID_FW2_ESP32_JTAG,
+                               .name = "USB JTAG/serial debug unit",
+                               .serial = "3C:DC:75:84:FA:BC",
+                               .location = 5,
+                               .portChain = { 1, 5 },
+                               .paths = std::nullopt,
+                               .port = std::string("COM5"),
+                               ._raw = "USB\\VID_303A&PID_1001" };
+    }
+
+    static Fw::USBDevice createFW2SDCardDevice() {
+        return Fw::USBDevice { .kind = Fw::USBDeviceType::MassStorage,
+                               .vid = Fw::USB_VID_FW2_SDCARD,
+                               .pid = Fw::USB_PID_FW2_SDCARD,
+                               .name = "Ultra Fast Media",
+                               .serial = "000000225001",
+                               .location = 6,
+                               .portChain = { 1, 6 },
+                               .paths = std::vector<std::string> { "E:\\" },
+                               .port = std::nullopt,
+                               ._raw = "USB\\VID_0424&PID_2240\\000000225001" };
+    }
+
+    static std::expected<Fw::FreeWiliDevice, std::string> createFullFW2Device() {
+        Fw::USBDevices usbDevices = { createFW2HubDevice(),
+                                      createFW2MainDevice(),
+                                      createFW2FTDIDevice(),
+                                      createFW2ESP32Device(),
+                                      createFW2SDCardDevice() };
+        return Fw::FreeWiliDevice::fromUSBDevices(usbDevices);
+    }
+};
+
+TEST(FW2Device, FromUSBDevices_FullStack) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << "Failed: " << result.error();
+
+    const auto& device = result.value();
+    EXPECT_EQ(device.deviceType, Fw::DeviceType::FreeWili2);
+    EXPECT_EQ(device.name, "FREE-WILi2");
+    EXPECT_EQ(device.serial, "FWTST1");
+    EXPECT_FALSE(device.standalone);
+    EXPECT_EQ(device.usbDevices.size(), 5);
+}
+
+TEST(FW2Device, GetMainUSBDevice_ReturnsFW2Main) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto mainResult = result->getMainUSBDevice();
+    ASSERT_TRUE(mainResult.has_value()) << mainResult.error();
+
+    const auto& main = mainResult.value();
+    EXPECT_EQ(main.kind, Fw::USBDeviceType::SerialMain);
+    EXPECT_EQ(main.vid, Fw::USB_VID_FW2_MAIN);
+    EXPECT_EQ(main.pid, Fw::USB_PID_FW2_MAIN);
+    EXPECT_EQ(main.location, static_cast<uint32_t>(Fw::FW2HubPortLocation::Main));
+    EXPECT_TRUE(main.port.has_value());
+    EXPECT_EQ(main.port.value(), "COM3");
+}
+
+TEST(FW2Device, GetFPGAUSBDevice_ReturnsFTDI) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto fpgaResult = result->getFPGAUSBDevice();
+    ASSERT_TRUE(fpgaResult.has_value()) << fpgaResult.error();
+
+    const auto& fpga = fpgaResult.value();
+    EXPECT_EQ(fpga.kind, Fw::USBDeviceType::FTDI);
+    EXPECT_EQ(fpga.location, static_cast<uint32_t>(Fw::FW2HubPortLocation::FPGA));
+}
+
+TEST(FW2Device, GetHubUSBDevice_ReturnsFW2Hub) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto hubResult = result->getHubUSBDevice();
+    ASSERT_TRUE(hubResult.has_value()) << hubResult.error();
+
+    const auto& hub = hubResult.value();
+    EXPECT_EQ(hub.kind, Fw::USBDeviceType::Hub);
+    EXPECT_EQ(hub.vid, Fw::USB_VID_FW2_HUB);
+    EXPECT_EQ(hub.pid, Fw::USB_PID_FW2_HUB);
+    EXPECT_EQ(hub.serial, "FWTST1");
+}
+
+TEST(FW2Device, GetDisplayUSBDevice_ReturnsError) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto displayResult = result->getDisplayUSBDevice();
+    EXPECT_FALSE(displayResult.has_value());
+}
+
+TEST(FW2Device, GetESP32ViaFilter) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto esp32Devices = result->getUSBDevices(Fw::USBDeviceType::ESP32);
+    ASSERT_EQ(esp32Devices.size(), 1);
+    EXPECT_EQ(esp32Devices[0].vid, Fw::USB_VID_FW2_ESP32);
+    EXPECT_EQ(esp32Devices[0].pid, Fw::USB_PID_FW2_ESP32_JTAG);
+}
+
+TEST(FW2Device, GetSDCardViaFilter) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto massStorageDevices = result->getUSBDevices(Fw::USBDeviceType::MassStorage);
+    ASSERT_EQ(massStorageDevices.size(), 1);
+    EXPECT_EQ(massStorageDevices[0].vid, Fw::USB_VID_FW2_SDCARD);
+    EXPECT_EQ(massStorageDevices[0].pid, Fw::USB_PID_FW2_SDCARD);
+    EXPECT_TRUE(massStorageDevices[0].paths.has_value());
 }

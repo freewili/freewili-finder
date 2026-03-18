@@ -49,6 +49,10 @@ auto Fw::getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid, uint32_t location) -> 
         { { USB_VID_FW_ICS, USB_PID_FW_WINKY }, Fw::USBDeviceType::SerialMain },
         { { USB_VID_FW_ICS, USB_PID_FW_DEFCON_2024 }, Fw::USBDeviceType::SerialMain },
         { { USB_VID_FW_ICS, USB_PID_FW_DEFCON_BADGE_2025 }, Fw::USBDeviceType::SerialMain },
+        // FREE-WILi2 devices
+        { { USB_VID_FW2_HUB, USB_PID_FW2_HUB }, Fw::USBDeviceType::Hub },
+        { { USB_VID_FW2_MAIN, USB_PID_FW2_MAIN }, Fw::USBDeviceType::SerialMain },
+        { { USB_VID_FW2_SDCARD, USB_PID_FW2_SDCARD }, Fw::USBDeviceType::MassStorage },
     };
 
     if (auto it = usbDeviceTypeMap.find({ vid, pid }); it != usbDeviceTypeMap.end()) {
@@ -92,7 +96,9 @@ auto Fw::getUSBDeviceTypeName(Fw::USBDeviceType type) -> std::string {
 auto Fw::getDeviceTypeName(Fw::DeviceType type) -> std::string {
     switch (type) {
         case Fw::DeviceType::FreeWili:
-            return "Free-WiLi";
+            return "FREE-WILi";
+        case Fw::DeviceType::FreeWili2:
+            return "FREE-WILi2";
         case Fw::DeviceType::DEFCON2024Badge:
             return "DEFCON 2024 Badge";
         case Fw::DeviceType::DEFCON2025FwBadge:
@@ -167,8 +173,7 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
                 deviceType = Fw::DeviceType::DEFCON2025FwBadge;
             } else if (device.pid == Fw::USB_PID_FW_WINKY) {
                 deviceType = Fw::DeviceType::Winky;
-            } else if (device.pid == Fw::USB_PID_FW_RPI_2040_UF2_PID
-                       || device.pid == Fw::USB_PID_FW_RPI_2350_UF2_PID)
+            } else if (device.pid == Fw::USB_PID_FW_RPI_2040_UF2_PID || device.pid == Fw::USB_PID_FW_RPI_2350_UF2_PID)
             {
                 deviceType = Fw::DeviceType::UF2;
             } else {
@@ -185,20 +190,45 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
     Fw::USBDevices sortedUsbDevices = usbDevices;
 
     // Original hub-based device logic for FreeWili devices
-    // Find the name and serial from the FTDI chip
+    // Find the name and serial from the hub or FTDI chip
     if (!isStandaloneDevice) {
-        name = Fw::getDeviceTypeName(Fw::DeviceType::FreeWili);
-        deviceType = Fw::DeviceType::FreeWili; // Default to FreeWili if not standalone
-        if (auto it = std::find_if(
-                usbDevices.begin(),
-                usbDevices.end(),
-                [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::FTDI; }
-            );
-            it != usbDevices.end())
-        {
-            serial = it->serial;
+        // Check if this is a FREE-WILi2 by looking at the hub VID/PID
+        bool isFW2 = false;
+        for (const auto& device: usbDevices) {
+            if (device.kind == Fw::USBDeviceType::Hub && device.vid == Fw::USB_VID_FW2_HUB
+                && device.pid == Fw::USB_PID_FW2_HUB)
+            {
+                isFW2 = true;
+                break;
+            }
+        }
+
+        if (isFW2) {
+            deviceType = Fw::DeviceType::FreeWili2;
+            name = Fw::getDeviceTypeName(Fw::DeviceType::FreeWili2);
+            // Use hub serial for FW2
+            for (const auto& device: usbDevices) {
+                if (device.kind == Fw::USBDeviceType::Hub) {
+                    serial = device.serial;
+                    break;
+                }
+            }
         } else {
-            serial = "Unknown";
+            deviceType = Fw::DeviceType::FreeWili;
+            name = Fw::getDeviceTypeName(Fw::DeviceType::FreeWili);
+            if (auto it = std::find_if(
+                    usbDevices.begin(),
+                    usbDevices.end(),
+                    [&](const USBDevice& usb_dev) {
+                        return usb_dev.kind == Fw::USBDeviceType::FTDI;
+                    }
+                );
+                it != usbDevices.end())
+            {
+                serial = it->serial;
+            } else {
+                serial = "Unknown";
+            }
         }
 
         // Get the location ID of the hub
@@ -247,19 +277,33 @@ auto Fw::FreeWiliDevice::getMainUSBDevice() const noexcept
         if (usbDevices.size() && isStandAloneDevice(usbDevices[0].vid, usbDevices[0].pid)) {
             return usbDevices[0];
         }
-    } else if (auto it = std::find_if(
-                   usbDevices.begin(),
-                   usbDevices.end(),
-                   [&](const USBDevice& usb_dev) {
-                       return usb_dev.location
-                           == static_cast<uint32_t>(Fw::USBHubPortLocation::Main)
-                           && usb_dev.kind != Fw::USBDeviceType::Hub
-                           && usb_dev.kind != Fw::USBDeviceType::Other;
-                   }
-               );
-               it != usbDevices.end())
-    {
-        return *it;
+    } else {
+        // First try to find by SerialMain kind (works for both FW1 new-firmware and FW2)
+        if (auto it = std::find_if(
+                usbDevices.begin(),
+                usbDevices.end(),
+                [&](const USBDevice& usb_dev) {
+                    return usb_dev.kind == Fw::USBDeviceType::SerialMain;
+                }
+            );
+            it != usbDevices.end())
+        {
+            return *it;
+        }
+        // Fall back to port location for FW1 old-firmware (RPI CDC on port 1)
+        if (auto it = std::find_if(
+                usbDevices.begin(),
+                usbDevices.end(),
+                [&](const USBDevice& usb_dev) {
+                    return usb_dev.location == static_cast<uint32_t>(Fw::USBHubPortLocation::Main)
+                        && usb_dev.kind != Fw::USBDeviceType::Hub
+                        && usb_dev.kind != Fw::USBDeviceType::Other;
+                }
+            );
+            it != usbDevices.end())
+        {
+            return *it;
+        }
     }
     return std::unexpected("Main USB device not found");
 }

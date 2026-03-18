@@ -10,9 +10,21 @@ The FreeWili Finder library provides both modern C++ and C APIs to:
 - **Identify** device types (Serial ports, Mass storage, FTDI/FPGA, etc.)
 - **Access** device information (VID/PID, serial numbers, port paths)
 
+## Supported Devices
+
+| Device | DeviceType | Detection |
+|--------|-----------|------------|
+| FREE-WILi (FW1) | `FreeWili` | Hub VID `0x0424` / PID `0x2513` |
+| FREE-WILi2 (FW2) | `FreeWili2` | Hub VID `0x093C` / PID `0x2059` |
+| DEFCON 2024 Badge | `DEFCON2024Badge` | Standalone |
+| DEFCON 2025 Badge | `DEFCON2025FwBadge` | Standalone |
+| Winky | `Winky` | Standalone |
+| UF2 Bootloader | `UF2` | Standalone |
+
 ## Features
 
 - **Dual API Support**: Modern C++23 API with `std::expected` error handling, plus C API for maximum compatibility
+- **Language Bindings**: Python (`pyfwfinder`) and Zig bindings
 - **Cross-Platform**: Supports Windows, macOS, and Linux
 - **Type Safety**: Strongly-typed USB device classification system
 - **Error Handling**: Comprehensive error reporting and handling
@@ -112,6 +124,30 @@ ctest --output-on-failure
 - `FW_BUILD_STATIC=ON/OFF` - Build static libraries (default: ON)
 - `FW_BUILD_EXAMPLES=ON/OFF` - Build example applications (default: ON)
 
+### Python Bindings (`pyfwfinder`)
+
+Requires Python 3.8+ and [uv](https://docs.astral.sh/uv/) (recommended) or pip.
+
+```bash
+# Install with uv (recommended)
+uv sync
+
+# Or install with pip
+pip install .
+```
+
+Usage:
+
+```python
+import pyfwfinder
+
+devices = pyfwfinder.find_all()
+for device in devices:
+    print(f"{device.name} (Serial: {device.serial})")
+    for usb in device.usb_devices:
+        print(f"  {usb.kind}: {usb.name}")
+```
+
 ## API Reference
 
 ### C++ API (`fwfinder.hpp`)
@@ -132,6 +168,16 @@ namespace Fw {
 #### Device Types
 
 ```cpp
+enum class DeviceType {
+    Unknown,           // Unknown device
+    FreeWili,          // FREE-WILi (FW1)
+    DEFCON2024Badge,   // DEFCON 2024 Badge
+    DEFCON2025FwBadge, // DEFCON 2025 Badge
+    UF2,               // UF2 Bootloader mode
+    Winky,             // Winky
+    FreeWili2,         // FREE-WILi2 (FW2)
+};
+
 enum class USBDeviceType {
     Hub,              // USB Hub (parent device)
     Serial,           // Serial Port (general)
@@ -207,7 +253,10 @@ freewili-finder/
 │   └── test/                 # C API tests
 ├── test/                     # C++ API tests
 ├── examples/                 # Example applications
-└── bindings/                 # Language bindings (Python, etc.)
+├── bindings/
+│   ├── python/               # Python bindings (pyfwfinder)
+│   └── zig/                  # Zig bindings
+└── pyproject.toml            # Python package configuration
 ```
 
 ## Testing

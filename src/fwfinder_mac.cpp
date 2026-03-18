@@ -569,19 +569,17 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
         std::string deviceKey =
             containerId + "_" + serial + "_" + std::to_string(vid) + "_" + std::to_string(pid);
 
-        standaloneDevices[deviceKey].push_back(
-            Fw::USBDevice { .kind = Fw::getUSBDeviceTypeFrom(vid, pid, getUSBPortFromLocationID(addr)),
-                            .vid = vid,
-                            .pid = pid,
-                            .name = manuName + " " + productName,
-                            .serial = serial,
-                            .location = getUSBPortFromLocationID(addr),
-                            .portChain = getUSBPortChainFromLocationID(addr),
-                            .paths = storagePaths.empty() ? std::nullopt
-                                                          : std::make_optional(storagePaths),
-                            .port = serialPort,
-                            ._raw = "" }
-        );
+        standaloneDevices[deviceKey].push_back(Fw::USBDevice {
+            .kind = Fw::getUSBDeviceTypeFrom(vid, pid, getUSBPortFromLocationID(addr)),
+            .vid = vid,
+            .pid = pid,
+            .name = manuName + " " + productName,
+            .serial = serial,
+            .location = getUSBPortFromLocationID(addr),
+            .portChain = getUSBPortChainFromLocationID(addr),
+            .paths = storagePaths.empty() ? std::nullopt : std::make_optional(storagePaths),
+            .port = serialPort,
+            ._raw = "" });
 
         IOObjectRelease(usbDevice);
     }

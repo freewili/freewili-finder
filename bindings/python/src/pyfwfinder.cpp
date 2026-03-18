@@ -42,6 +42,7 @@ NB_MODULE(pyfwfinder, m) {
         .value("DEFCON2025FwBadge", Fw::DeviceType::DEFCON2025FwBadge)
         .value("Winky", Fw::DeviceType::Winky)
         .value("UF2", Fw::DeviceType::UF2)
+        .value("FreeWili2", Fw::DeviceType::FreeWili2)
         .export_values();
 
     nb::class_<Fw::USBDevice>(m, "USBDevice")
@@ -71,6 +72,12 @@ NB_MODULE(pyfwfinder, m) {
         .def(
             "__str__",
             [](const Fw::FreeWiliDevice& self) { return self.name + " " + self.serial; }
+        )
+        .def(
+            "__repr__",
+            [](const Fw::FreeWiliDevice& self) {
+                return "<FreeWiliDevice " + self.name + " " + self.serial + ">";
+            }
         )
         .def(
             "__eq__",

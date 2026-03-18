@@ -8,8 +8,8 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyfwfinder"
-version = "0.4.2"
-description = "Python API to find Free-WiLi devices"
+version = "0.5.0"
+description = "Python API to find FREE-WILi devices"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [{ name = "David Rebbe", email = "drebbe@intrepidcs.com" }]

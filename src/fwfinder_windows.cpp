@@ -766,6 +766,182 @@ auto findVolumePaths(
     return std::nullopt;
 }
 
+/// @brief Read the real USB iSerialNumber string descriptor for a device by querying
+///        its parent hub's connection information.
+/// @param devInst The DEVINST of the target device (e.g. a child hub).
+/// @return The serial string if available, or std::nullopt if not retrievable.
+auto _getUSBSerialFromDescriptor(DEVINST devInst) noexcept -> std::optional<std::string> {
+    // 1. Get the port number from LocationPaths (last USB(x) segment)
+    auto locPaths = _getDevicePropertyMultiSz(devInst, DEVPKEY_Device_LocationPaths);
+    if (!locPaths.has_value() || locPaths->empty()) {
+        return std::nullopt;
+    }
+    auto portChain = _extractUSBPortChainFromLocationPaths(locPaths.value());
+    if (portChain.empty()) {
+        return std::nullopt;
+    }
+    uint32_t portNumber = portChain.back();
+
+    // 2. Get the parent device (should be a USB hub or root hub)
+    DEVINST parentDevInst = 0;
+    if (CM_Get_Parent(&parentDevInst, devInst, 0) != CR_SUCCESS) {
+        return std::nullopt;
+    }
+
+    // 3. Open the parent hub via its GUID_DEVINTERFACE_USB_HUB interface
+    //    Get the parent's instance ID first
+    TCHAR parentInstanceId[MAX_DEVICE_ID_LEN] {};
+    if (CM_Get_Device_ID(parentDevInst, parentInstanceId, MAX_DEVICE_ID_LEN, 0) != CR_SUCCESS) {
+        return std::nullopt;
+    }
+    // Find the parent hub's device interface path
+    HDEVINFO hParentDevInfo = SetupDiGetClassDevs(
+        &GUID_DEVINTERFACE_USB_HUB,
+        parentInstanceId,
+        nullptr,
+        DIGCF_DEVICEINTERFACE | DIGCF_PRESENT
+    );
+    if (hParentDevInfo == INVALID_HANDLE_VALUE) {
+        return std::nullopt;
+    }
+    SP_DEVINFO_DATA parentDevInfoData {};
+    parentDevInfoData.cbSize = sizeof(parentDevInfoData);
+    if (!SetupDiEnumDeviceInfo(hParentDevInfo, 0, &parentDevInfoData)) {
+        SetupDiDestroyDeviceInfoList(hParentDevInfo);
+        return std::nullopt;
+    }
+    SP_DEVICE_INTERFACE_DATA interfaceData {};
+    interfaceData.cbSize = sizeof(interfaceData);
+    if (!SetupDiEnumDeviceInterfaces(
+            hParentDevInfo,
+            &parentDevInfoData,
+            &GUID_DEVINTERFACE_USB_HUB,
+            0,
+            &interfaceData
+        ))
+    {
+        SetupDiDestroyDeviceInfoList(hParentDevInfo);
+        return std::nullopt;
+    }
+    BYTE detailBuf[1024] {};
+    auto* detail = reinterpret_cast<SP_DEVICE_INTERFACE_DETAIL_DATA*>(detailBuf);
+    detail->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+    DWORD detailSize = sizeof(detailBuf);
+    if (!SetupDiGetDeviceInterfaceDetail(
+            hParentDevInfo,
+            &interfaceData,
+            detail,
+            detailSize,
+            &detailSize,
+            nullptr
+        ))
+    {
+        SetupDiDestroyDeviceInfoList(hParentDevInfo);
+        return std::nullopt;
+    }
+    SetupDiDestroyDeviceInfoList(hParentDevInfo);
+
+    // 4. Open the parent hub (GENERIC_WRITE needed for descriptor requests)
+    HANDLE hParentHub = CreateFile(
+        detail->DevicePath,
+        GENERIC_WRITE,
+        FILE_SHARE_WRITE,
+        nullptr,
+        OPEN_EXISTING,
+        0,
+        nullptr
+    );
+    if (hParentHub == INVALID_HANDLE_VALUE) {
+        return std::nullopt;
+    }
+
+    // 5. Query connection info to get iSerialNumber index
+    uint8_t connInfoBuf[sizeof(USB_NODE_CONNECTION_INFORMATION_EX)] {};
+    auto* connInfo = reinterpret_cast<USB_NODE_CONNECTION_INFORMATION_EX*>(connInfoBuf);
+    connInfo->ConnectionIndex = portNumber;
+    DWORD bytesReturned = 0;
+    if (!DeviceIoControl(
+            hParentHub,
+            IOCTL_USB_GET_NODE_CONNECTION_INFORMATION_EX,
+            connInfo,
+            sizeof(connInfoBuf),
+            connInfo,
+            sizeof(connInfoBuf),
+            &bytesReturned,
+            nullptr
+        ))
+    {
+        CloseHandle(hParentHub);
+        return std::nullopt;
+    }
+    uint8_t iSerialNumber = connInfo->DeviceDescriptor.iSerialNumber;
+    if (iSerialNumber == 0) {
+        CloseHandle(hParentHub);
+        return std::nullopt;
+    }
+
+    // 6. Read the string descriptor
+    // USB_DESCRIPTOR_REQUEST ends with a flexible array Data[0], so use a raw buffer.
+    constexpr DWORD descBufSize = sizeof(USB_DESCRIPTOR_REQUEST) + 256;
+    uint8_t descBuf[descBufSize] {};
+    auto* descReq = reinterpret_cast<USB_DESCRIPTOR_REQUEST*>(descBuf);
+    descReq->ConnectionIndex = portNumber;
+    descReq->SetupPacket.wValue =
+        static_cast<USHORT>((USB_STRING_DESCRIPTOR_TYPE << 8) | iSerialNumber);
+    descReq->SetupPacket.wIndex = 0;
+    descReq->SetupPacket.wLength = 256;
+    if (!DeviceIoControl(
+            hParentHub,
+            IOCTL_USB_GET_DESCRIPTOR_FROM_NODE_CONNECTION,
+            descBuf,
+            descBufSize,
+            descBuf,
+            descBufSize,
+            &bytesReturned,
+            nullptr
+        ))
+    {
+        CloseHandle(hParentHub);
+        return std::nullopt;
+    }
+    CloseHandle(hParentHub);
+
+    // Parse the USB string descriptor (UTF-16LE after 2-byte header)
+    auto* stringDesc = reinterpret_cast<USB_STRING_DESCRIPTOR*>(descReq->Data);
+    if (stringDesc->bLength < 2 || stringDesc->bDescriptorType != USB_STRING_DESCRIPTOR_TYPE) {
+        return std::nullopt;
+    }
+    int wcharCount = (stringDesc->bLength - 2) / sizeof(WCHAR);
+    if (wcharCount <= 0) {
+        return std::nullopt;
+    }
+    int utf8Len = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        stringDesc->bString,
+        wcharCount,
+        nullptr,
+        0,
+        nullptr,
+        nullptr
+    );
+    if (utf8Len <= 0) {
+        return std::nullopt;
+    }
+    std::string serial(utf8Len, '\0');
+    WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        stringDesc->bString,
+        wcharCount,
+        serial.data(),
+        utf8Len,
+        nullptr,
+        nullptr
+    );
+    return serial;
+}
+
 /// @brief Get All USB HubDevices filtered by VendorID and ProductID
 /// @param devicesByInstanceId List of devices from getEnumeratedDevices()
 /// @param devicesByDriverKey List of devices from getEnumeratedDevices()
@@ -859,6 +1035,14 @@ auto getHubEnumeratedDevices(
             enumeratedHubDevice->vid = usbInstId->vid;
             enumeratedHubDevice->pid = usbInstId->pid;
             enumeratedHubDevice->serial = usbInstId->serial;
+            // Windows generates synthetic serial IDs for hub devices even when
+            // the hub has a real iSerialNumber descriptor. Read it from the USB
+            // descriptor via the parent hub's connection info.
+            if (auto realSerial = _getUSBSerialFromDescriptor(devInfoData.DevInst);
+                realSerial.has_value())
+            {
+                enumeratedHubDevice->serial = realSerial.value();
+            }
             hubs[enumeratedHubDevice] = {};
         }
         // Open the Hub so we can poll some information
@@ -1057,35 +1241,31 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
     for (auto&& hub: hubs) {
         USBDevices devices;
 
-        devices.push_back(
-            Fw::USBDevice {
-                .kind = Fw::getUSBDeviceTypeFrom(hub.first->vid, hub.first->pid, hub.first->location),
-                .vid = hub.first->vid,
-                .pid = hub.first->pid,
-                .name = hub.first->busDescription + " (" + hub.first->description + ")",
-                .serial = hub.first->serial,
-                .location = hub.first->location,
-                .portChain = hub.first->usbPortChain,
-                .paths = std::nullopt,
-                .port = "",
-                ._raw = hub.first->instanceId,
-            }
-        );
+        devices.push_back(Fw::USBDevice {
+            .kind = Fw::getUSBDeviceTypeFrom(hub.first->vid, hub.first->pid, hub.first->location),
+            .vid = hub.first->vid,
+            .pid = hub.first->pid,
+            .name = hub.first->busDescription + " (" + hub.first->description + ")",
+            .serial = hub.first->serial,
+            .location = hub.first->location,
+            .portChain = hub.first->usbPortChain,
+            .paths = std::nullopt,
+            .port = "",
+            ._raw = hub.first->instanceId,
+        });
         for (auto&& child: hub.second) {
-            devices.push_back(
-                Fw::USBDevice {
-                    .kind = Fw::getUSBDeviceTypeFrom(child->vid, child->pid, child->location),
-                    .vid = child->vid,
-                    .pid = child->pid,
-                    .name = child->busDescription + " (" + child->description + ")",
-                    .serial = child->serial,
-                    .location = child->location,
-                    .portChain = child->usbPortChain,
-                    .paths = child->driveLetters,
-                    .port = child->port,
-                    ._raw = child->instanceId,
-                }
-            );
+            devices.push_back(Fw::USBDevice {
+                .kind = Fw::getUSBDeviceTypeFrom(child->vid, child->pid, child->location),
+                .vid = child->vid,
+                .pid = child->pid,
+                .name = child->busDescription + " (" + child->description + ")",
+                .serial = child->serial,
+                .location = child->location,
+                .portChain = child->usbPortChain,
+                .paths = child->driveLetters,
+                .port = child->port,
+                ._raw = child->instanceId,
+            });
         }
         // Create FreeWili device from USB devices with UniqueID
         if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
@@ -1146,20 +1326,22 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
             continue;
         }
         USBDevices devices;
-        devices.push_back(
-            Fw::USBDevice {
-                .kind = Fw::getUSBDeviceTypeFrom(device.second->vid, device.second->pid, device.second->location),
-                .vid = device.second->vid,
-                .pid = device.second->pid,
-                .name = device.second->busDescription + " (" + device.second->description + ")",
-                .serial = device.second->serial,
-                .location = device.second->location,
-                .portChain = device.second->usbPortChain,
-                .paths = device.second->driveLetters,
-                .port = device.second->port,
-                ._raw = device.second->instanceId,
-            }
-        );
+        devices.push_back(Fw::USBDevice {
+            .kind = Fw::getUSBDeviceTypeFrom(
+                device.second->vid,
+                device.second->pid,
+                device.second->location
+            ),
+            .vid = device.second->vid,
+            .pid = device.second->pid,
+            .name = device.second->busDescription + " (" + device.second->description + ")",
+            .serial = device.second->serial,
+            .location = device.second->location,
+            .portChain = device.second->usbPortChain,
+            .paths = device.second->driveLetters,
+            .port = device.second->port,
+            ._raw = device.second->instanceId,
+        });
         if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
             fwDevices.push_back(result.value());
         } else {

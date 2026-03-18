@@ -18,6 +18,14 @@ enum class USBHubPortLocation : uint32_t {
     FPGA = 3,
 };
 
+/// Location of the USB device on the FREE-WILi2 hub
+enum class FW2HubPortLocation : uint32_t {
+    Main = 1,
+    FPGA = 3,
+    ESP32 = 5,
+    SDCard = 6,
+};
+
 enum class DeviceType : uint32_t {
     Unknown = 0,
     FreeWili = 1,
@@ -25,6 +33,7 @@ enum class DeviceType : uint32_t {
     DEFCON2025FwBadge = 3,
     UF2 = 4,
     Winky = 5,
+    FreeWili2 = 6,
 };
 
 /// Type of USB Device

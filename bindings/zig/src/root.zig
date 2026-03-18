@@ -28,6 +28,7 @@ const DeviceType = enum(c_int) {
     DEFCON2025FwBadge,
     UF2,
     Winky,
+    FreeWili2,
 };
 
 pub fn check_fw_error(code: fw.fw_error_t) FreeWiliError!void {
