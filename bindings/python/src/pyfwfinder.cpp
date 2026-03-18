@@ -74,6 +74,12 @@ NB_MODULE(pyfwfinder, m) {
             [](const Fw::FreeWiliDevice& self) { return self.name + " " + self.serial; }
         )
         .def(
+            "__repr__",
+            [](const Fw::FreeWiliDevice& self) {
+                return "<FreeWiliDevice " + self.name + " " + self.serial + ">";
+            }
+        )
+        .def(
             "__eq__",
             [](const Fw::FreeWiliDevice& self, const Fw::FreeWiliDevice& other) {
                 return self == other;

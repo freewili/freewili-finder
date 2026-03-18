@@ -77,7 +77,7 @@ TEST(FwFinder, getUSBDeviceTypeName) {
 
 TEST(FwFinder, getDeviceTypeName) {
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::Unknown).c_str(), "Unknown");
-    ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::FreeWili).c_str(), "Free-WiLi");
+    ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::FreeWili).c_str(), "FREE-WILi");
     ASSERT_STREQ(
         Fw::getDeviceTypeName(Fw::DeviceType::DEFCON2024Badge).c_str(),
         "DEFCON 2024 Badge"
@@ -166,7 +166,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::Hub,
                                .vid = Fw::USB_VID_FW_HUB,
                                .pid = Fw::USB_PID_FW_HUB,
-                               .name = "Free-WiLi Hub",
+                               .name = "FREE-WILi Hub",
                                .serial = "HUB001",
                                .location = 3, // Hub is at the root level, not on a specific port
                                .portChain = { 1, 2, 3 },
@@ -182,7 +182,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::FTDI,
                                .vid = Fw::USB_VID_FW_FTDI,
                                .pid = Fw::USB_PID_FW_FTDI,
-                               .name = "Free-WiLi FTDI",
+                               .name = "FREE-WILi FTDI",
                                .serial = "FTDI001",
                                .location = 3,
                                .portChain = { 1, 2, 3 },
@@ -198,7 +198,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::SerialMain,
                                .vid = Fw::USB_VID_FW_ICS,
                                .pid = Fw::USB_PID_FW_MAIN_CDC_PID,
-                               .name = "Free-WiLi Main Serial",
+                               .name = "FREE-WILi Main Serial",
                                .serial = "MAIN001",
                                .location = 1,
                                .portChain = { 1, 2, 1 },
@@ -214,7 +214,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::SerialDisplay,
                                .vid = Fw::USB_VID_FW_ICS,
                                .pid = Fw::USB_PID_FW_DISPLAY_CDC_PID,
-                               .name = "Free-WiLi Display Serial",
+                               .name = "FREE-WILi Display Serial",
                                .serial = "DISP001",
                                .location = 2,
                                .portChain = { 1, 2, 2 },
@@ -230,7 +230,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::MassStorage,
                                .vid = Fw::USB_VID_FW_RPI,
                                .pid = Fw::USB_PID_FW_RPI_2040_UF2_PID,
-                               .name = "Free-WiLi Main Storage",
+                               .name = "FREE-WILi Main Storage",
                                .serial = "MASS001",
                                .location = 1,
                                .portChain = { 1, 2, 1 },
@@ -246,7 +246,7 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::MassStorage,
                                .vid = Fw::USB_VID_FW_RPI,
                                .pid = Fw::USB_PID_FW_RPI_2040_UF2_PID,
-                               .name = "Free-WiLi Display Storage",
+                               .name = "FREE-WILi Display Storage",
                                .serial = "MASS002",
                                .location = 2,
                                .portChain = { 1, 2, 2 },

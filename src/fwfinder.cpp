@@ -96,7 +96,7 @@ auto Fw::getUSBDeviceTypeName(Fw::USBDeviceType type) -> std::string {
 auto Fw::getDeviceTypeName(Fw::DeviceType type) -> std::string {
     switch (type) {
         case Fw::DeviceType::FreeWili:
-            return "Free-WiLi";
+            return "FREE-WILi";
         case Fw::DeviceType::FreeWili2:
             return "FREE-WILi2";
         case Fw::DeviceType::DEFCON2024Badge:
