@@ -1,4 +1,50 @@
 const std = @import("std");
+const builtin = @import("builtin");
+
+// Resolve the correct library file names and paths based on the target OS.
+fn addNativeLibraries(step: *std.Build.Step.Compile, b: *std.Build) void {
+    step.addIncludePath(b.path("../../c_api/include"));
+    step.addIncludePath(b.path("../../include"));
+    step.linkLibC();
+    step.linkLibCpp();
+
+    const target_os = step.rootModuleTarget().os.tag;
+    switch (target_os) {
+        .windows => {
+            // On Windows, link against import libraries (.lib)
+            step.addLibraryPath(b.path("../../build/lib"));
+            step.linkSystemLibrary("cfwfinder");
+            step.linkSystemLibrary("fwfinder");
+            // Windows USB enumeration deps
+            step.linkSystemLibrary("setupapi");
+            step.linkSystemLibrary("cfgmgr32");
+        },
+        .linux => {
+            step.addObjectFile(b.path("../../build/c_api/libcfwfinder.so"));
+            step.addObjectFile(b.path("../../build/libfwfinder.so"));
+            step.addRPath(b.path("../../build/c_api"));
+            step.addRPath(b.path("../../build"));
+            step.linkSystemLibrary("udev");
+        },
+        .macos => {
+            step.addObjectFile(b.path("../../build/c_api/libcfwfinder.dylib"));
+            step.addObjectFile(b.path("../../build/libfwfinder.dylib"));
+            step.addRPath(b.path("../../build/c_api"));
+            step.addRPath(b.path("../../build"));
+            step.linkFramework("IOKit");
+            step.linkFramework("CoreFoundation");
+        },
+        else => {},
+    }
+}
+
+// On Windows, DLLs must be on PATH for the process. Add the DLL directory
+// to the RunStep so it can find them at runtime.
+fn addDllSearchPaths(run_step: *std.Build.Step.Run, b: *std.Build) void {
+    if (builtin.os.tag == .windows) {
+        run_step.addPathDir(b.path("../../build/bin").getPath(b));
+    }
+}
 
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
@@ -53,18 +99,8 @@ pub fn build(b: *std.Build) void {
         .root_module = lib_mod,
     });
 
-    // Add include path for the C API header
-    lib.addIncludePath(b.path("../../c_api/include"));
-    lib.addIncludePath(b.path("../../include"));
-    lib.linkLibC();
-    lib.linkLibCpp();
-
-    // Link the shared libraries instead of static
-    lib.addObjectFile(b.path("../../build/c_api/libcfwfinder.so"));
-    lib.addObjectFile(b.path("../../build/libfwfinder.so"));
-
-    // Add system libraries that the C++ code might need
-    lib.linkSystemLibrary("udev"); // For Linux USB device enumeration
+    // Add include paths and link native libraries
+    addNativeLibraries(lib, b);
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -79,20 +115,7 @@ pub fn build(b: *std.Build) void {
     });
 
     // Add include path for the C API header
-    exe.addIncludePath(b.path("../../c_api/include"));
-    exe.linkLibC();
-    exe.linkLibCpp();
-
-    // Link the shared libraries instead of static
-    exe.addObjectFile(b.path("../../build/c_api/libcfwfinder.so"));
-    exe.addObjectFile(b.path("../../build/libfwfinder.so"));
-
-    // Add rpath so the executable can find the shared libraries
-    exe.addRPath(b.path("../../build/c_api"));
-    exe.addRPath(b.path("../../build"));
-
-    // Add system libraries that the C++ code might need
-    exe.linkSystemLibrary("udev"); // For Linux USB device enumeration
+    addNativeLibraries(exe, b);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -103,6 +126,7 @@ pub fn build(b: *std.Build) void {
     // step is evaluated that depends on it. The next line below will establish
     // such a dependency.
     const run_cmd = b.addRunArtifact(exe);
+    addDllSearchPaths(run_cmd, b);
 
     // By making the run step depend on the install step, it will be run from the
     // installation directory rather than directly from within the cache directory.
@@ -129,33 +153,20 @@ pub fn build(b: *std.Build) void {
     });
 
     // Add the same library configuration to lib_unit_tests as the main lib
-    lib_unit_tests.addIncludePath(b.path("../../c_api/include"));
-    lib_unit_tests.addIncludePath(b.path("../../include"));
-    lib_unit_tests.linkLibC();
-    lib_unit_tests.linkLibCpp();
-    lib_unit_tests.addObjectFile(b.path("../../build/c_api/libcfwfinder.so"));
-    lib_unit_tests.addObjectFile(b.path("../../build/libfwfinder.so"));
-    lib_unit_tests.addRPath(b.path("../../build/c_api"));
-    lib_unit_tests.addRPath(b.path("../../build"));
-    lib_unit_tests.linkSystemLibrary("udev");
+    addNativeLibraries(lib_unit_tests, b);
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
+    addDllSearchPaths(run_lib_unit_tests, b);
 
     const exe_unit_tests = b.addTest(.{
         .root_module = exe_mod,
     });
 
     // Add the same library configuration to exe_unit_tests as the main exe
-    exe_unit_tests.addIncludePath(b.path("../../c_api/include"));
-    exe_unit_tests.linkLibC();
-    exe_unit_tests.linkLibCpp();
-    exe_unit_tests.addObjectFile(b.path("../../build/c_api/libcfwfinder.so"));
-    exe_unit_tests.addObjectFile(b.path("../../build/libfwfinder.so"));
-    exe_unit_tests.addRPath(b.path("../../build/c_api"));
-    exe_unit_tests.addRPath(b.path("../../build"));
-    exe_unit_tests.linkSystemLibrary("udev");
+    addNativeLibraries(exe_unit_tests, b);
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+    addDllSearchPaths(run_exe_unit_tests, b);
 
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request

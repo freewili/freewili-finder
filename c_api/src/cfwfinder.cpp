@@ -79,9 +79,7 @@ CFW_FINDER_API fw_error_t fw_device_find_all(
                 return std::none_of(
                     found_fw_devices.value().begin(),
                     found_fw_devices.value().end(),
-                    [&fw_device](const FreeWiliDevice& device) {
-                        return *fw_device == device;
-                    }
+                    [&fw_device](const FreeWiliDevice& device) { return *fw_device == device; }
                 );
             }
         ),
@@ -216,6 +214,9 @@ fw_device_get_type_name(fw_devicetype_t device_type, char* const name, uint32_t*
             break;
         case fw_devicetype_winky:
             type_name = Fw::getDeviceTypeName(Fw::DeviceType::Winky);
+            break;
+        case fw_devicetype_freewili2:
+            type_name = Fw::getDeviceTypeName(Fw::DeviceType::FreeWili2);
             break;
         default:
             type_name = std::string("Unknown Device Type");
