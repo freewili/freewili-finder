@@ -218,6 +218,30 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
                     break;
                 }
             }
+            if (serial.empty()) {
+                // The hub serial isn't always readable - it lives in a string descriptor that
+                // needs a platform specific workaround on both Windows and macOS. Fall back to the
+                // children that carry the FREE-WILi2 serial rather than dropping the device.
+                // Mass storage, the debug probe and the ESP32 all report their own module serials,
+                // so they are deliberately not used here.
+                for (auto kind: { Fw::USBDeviceType::FTDI,
+                                  Fw::USBDeviceType::SerialMain,
+                                  Fw::USBDeviceType::SerialDisplay })
+                {
+                    if (auto it = std::find_if(
+                            usbDevices.begin(),
+                            usbDevices.end(),
+                            [&](const USBDevice& usb_dev) {
+                                return usb_dev.kind == kind && !usb_dev.serial.empty();
+                            }
+                        );
+                        it != usbDevices.end())
+                    {
+                        serial = it->serial;
+                        break;
+                    }
+                }
+            }
         } else {
             deviceType = Fw::DeviceType::FreeWili;
             name = Fw::getDeviceTypeName(Fw::DeviceType::FreeWili);

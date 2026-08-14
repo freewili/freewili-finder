@@ -4,6 +4,7 @@
     #include <usbdef.hpp>
 
     #include <IOKit/IOKitLib.h>
+    #include <IOKit/IOCFPlugIn.h>
     #include <IOKit/usb/IOUSBLib.h>
     #include <IOKit/usb/USBSpec.h>
     #include <CoreFoundation/CoreFoundation.h>
@@ -17,6 +18,9 @@
     #include <set>
     #include <vector>
     #include <algorithm>
+    #include <array>
+    #include <functional>
+    #include <utility>
 
 auto cfstrAsString(CFStringRef string_ref) noexcept -> std::string {
     if (string_ref == nullptr) {
@@ -150,6 +154,115 @@ auto getPropertyAsStr(io_service_t& usbDevice, CFStringRef propertyName)
         value = value.c_str();
     }
     return value;
+}
+
+/// Read a USB string descriptor straight from the device.
+///
+/// macOS only publishes "USB Vendor Name" / "USB Product Name" / "USB Serial Number" in the IO
+/// registry when it managed to resolve the string descriptors while enumerating. The FREE-WILi2
+/// hub advertises a language ID of 0x0000 in its string descriptor 0 and stalls requests for the
+/// usual 0x0409, and macOS refuses to use a zero language ID - so the hub ends up in the registry
+/// with no strings at all, while Windows and Linux both read them fine. Ask the device ourselves
+/// using the language ID it actually answers to.
+///
+/// DeviceRequest() works without USBDeviceOpen(); opening a hub always fails with
+/// kIOReturnExclusiveAccess since AppleUSB20Hub owns it.
+///
+/// @param usbDevice The IOKit USB device service to query.
+/// @param index String descriptor index, as found in iManufacturer/iProduct/iSerialNumber.
+/// @return The string if it could be read, std::nullopt otherwise.
+auto getStringDescriptor(io_service_t usbDevice, uint8_t index) noexcept
+    -> std::optional<std::string> {
+    // Index 0 means "no string" in a USB device descriptor.
+    if (index == 0) {
+        return std::nullopt;
+    }
+
+    IOCFPlugInInterface** plugin = nullptr;
+    SInt32 score = 0;
+    if (IOCreatePlugInInterfaceForService(
+            usbDevice,
+            kIOUSBDeviceUserClientTypeID,
+            kIOCFPlugInInterfaceID,
+            &plugin,
+            &score
+        ) != kIOReturnSuccess
+        || plugin == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    IOUSBDeviceInterface** deviceInterface = nullptr;
+    HRESULT queryResult = (*plugin)->QueryInterface(
+        plugin,
+        CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID),
+        reinterpret_cast<LPVOID*>(&deviceInterface)
+    );
+    IODestroyPlugInInterface(plugin);
+    if (queryResult != S_OK || deviceInterface == nullptr) {
+        return std::nullopt;
+    }
+
+    uint8_t buffer[256] {};
+    IOUSBDevRequest request {};
+    request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
+    request.bRequest = kUSBRqGetDescriptor;
+    request.wValue = static_cast<uint16_t>((kUSBStringDesc << 8) | index);
+    // Language ID. The FREE-WILi2 hub only answers to 0x0000 and stalls on 0x0409.
+    request.wIndex = 0;
+    request.wLength = sizeof(buffer);
+    request.pData = buffer;
+    IOReturn result = (*deviceInterface)->DeviceRequest(deviceInterface, &request);
+    (*deviceInterface)->Release(deviceInterface);
+
+    // A string descriptor is a 2 byte header (bLength, bDescriptorType) plus at least one
+    // UTF-16LE code unit.
+    if (result != kIOReturnSuccess || request.wLenDone < 4 || buffer[1] != kUSBStringDesc) {
+        return std::nullopt;
+    }
+
+    std::string value;
+    for (uint32_t i = 2; i + 1 < request.wLenDone; i += 2) {
+        // FreeWili descriptors are ASCII, drop anything that isn't.
+        if (buffer[i] != 0 && buffer[i + 1] == 0) {
+            value.push_back(static_cast<char>(buffer[i]));
+        }
+    }
+    if (value.empty()) {
+        return std::nullopt;
+    }
+    return value;
+}
+
+/// Fill in any of the manufacturer/product/serial strings macOS failed to resolve during
+/// enumeration by reading the string descriptors directly. See getStringDescriptor().
+///
+/// This is a no-op when the registry already has everything, which is the case for every device
+/// except the FREE-WILi2 hub.
+auto resolveMissingStrings(
+    io_service_t usbDevice,
+    std::string& manuName,
+    std::string& productName,
+    std::string& serial
+) noexcept -> void {
+    const std::array<std::pair<CFStringRef, std::reference_wrapper<std::string>>, 3> lookups { {
+        { CFSTR("iManufacturer"), manuName },
+        { CFSTR("iProduct"), productName },
+        { CFSTR("iSerialNumber"), serial },
+    } };
+
+    for (const auto& [indexProperty, target]: lookups) {
+        if (!target.get().empty()) {
+            continue;
+        }
+        auto index = getPropertyAsInt<uint8_t>(usbDevice, indexProperty);
+        if (!index.has_value()) {
+            continue;
+        }
+        if (auto value = getStringDescriptor(usbDevice, index.value()); value.has_value()) {
+            target.get() = value.value();
+        }
+    }
 }
 
 auto findSerialPort(io_object_t entry, int level) noexcept
@@ -375,6 +488,10 @@ static auto _find_all_fw_hub_based() noexcept -> std::expected<Fw::FreeWiliDevic
         {
             serial = result.value();
         }
+        // macOS can't resolve the FREE-WILi2 hub's strings during enumeration, read them from the
+        // device directly.
+        resolveMissingStrings(usbDevice, manuName, productName, serial);
+
         // Create the hub device
         Fw::USBDevice hubDevice { .kind = Fw::USBDeviceType::Hub,
                                   .vid = vid,
@@ -435,6 +552,7 @@ static auto _find_all_fw_hub_based() noexcept -> std::expected<Fw::FreeWiliDevic
                 {
                     childSerial = result.value();
                 }
+                resolveMissingStrings(childDevice, childManuName, childProductName, childSerial);
 
                 std::optional<std::string> serialPort;
                 if (auto result = findSerialPort(childDevice, 0); result.has_value()) {
