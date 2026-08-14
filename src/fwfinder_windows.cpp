@@ -1016,11 +1016,13 @@ auto getHubEnumeratedDevices(
             // We can't do anything without the InstanceId of the HUB
             continue;
         }
-        // This grabs all VID/PID devices we care about for now.
+        // Only the hubs a FreeWili is built around, matching Linux and macOS. The
+        // whitelist is far broader than this and would treat any whitelisted device
+        // that happens to expose a hub interface as a FreeWili.
         auto usbInstId = getUSBInstanceID(instanceId);
         if (!usbInstId.has_value()) {
             continue;
-        } else if (!Fw::is_vid_pid_whitelisted(usbInstId.value().vid, usbInstId.value().pid)) {
+        } else if (!Fw::is_freewili_hub(usbInstId.value().vid, usbInstId.value().pid)) {
             continue;
         }
         // Find the actual Hub in our previous list
@@ -1250,7 +1252,9 @@ auto _find_all_freewili() noexcept -> std::expected<Fw::FreeWiliDevices, std::st
             .location = hub.first->location,
             .portChain = hub.first->usbPortChain,
             .paths = std::nullopt,
-            .port = "",
+            // A hub has no serial port. Linux and macOS report nullopt here, an
+            // empty string would leave port.has_value() true on Windows only.
+            .port = std::nullopt,
             ._raw = hub.first->instanceId,
         });
         for (auto&& child: hub.second) {
