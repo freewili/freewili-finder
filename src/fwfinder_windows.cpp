@@ -107,8 +107,12 @@ auto getLastErrorString(DWORD errorCode) -> std::expected<std::string, DWORD> {
         );
         len != 0)
     {
+        // Convert before freeing - reading the buffer back after LocalFree() is a use after
+        // free. It usually still holds the message text, which is why this only shows up
+        // intermittently, but a debug heap fills the block and the conversion returns garbage.
+        auto result = stringFromTCHARRaw(buffer);
         LocalFree(buffer);
-        return stringFromTCHARRaw(buffer);
+        return result;
     } else {
         LocalFree(buffer);
         // Error state, FormatMessage failed.
