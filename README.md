@@ -21,6 +21,22 @@ The FreeWili Finder library provides both modern C++ and C APIs to:
 | Winky | `Winky` | Standalone |
 | UF2 Bootloader | `UF2` | Standalone |
 
+### FREE-WILi2 components
+
+Every FW2 presents an internal 7-port hub with its processors hanging off of it:
+
+| Component | Hub port | VID / PID | `USBDeviceType` |
+|-----------|----------|-----------|-----------------|
+| Hub | — | `0x093C` / `0x2059` | `Hub` |
+| Main | 1 | `0x093C` / `0x205A` | `SerialMain` |
+| Display *(optional, usually not populated)* | — | `0x093C` / `0x2060` | `SerialDisplay` |
+| FTDI / FPGA | 3 | `0x0403` / `0x6014` | `FTDI` |
+| Debug Probe (CMSIS-DAP) | 4 | `0x2E8A` / `0x000C` | `DebugProbe` |
+| Mass Storage ("FW Ultra Fast Media") | 6 | `0x093C` / `0x205F` | `MassStorage` |
+
+The FW2 serial number is taken from the hub descriptor and is shared by the Main
+and FTDI components. The Debug Probe and Mass Storage report their own serials.
+
 ## Features
 
 - **Dual API Support**: Modern C++23 API with `std::expected` error handling, plus C API for maximum compatibility
@@ -186,7 +202,8 @@ enum class USBDeviceType {
     MassStorage,      // Mass Storage Device
     ESP32,            // ESP32 USB (JTAG/RTT)
     FTDI,             // FTDI/FPGA Device
-    Other             // Other USB device
+    Other,            // Other USB device
+    DebugProbe        // CMSIS-DAP Debug Probe (FREE-WILi2)
 };
 ```
 

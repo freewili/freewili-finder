@@ -9,8 +9,8 @@
     #include <expected>
     #include <string>
     #include <cstdio>
+    #include <functional>
     #include <iostream>
-    #include <iomanip>
     #include <algorithm>
     #include <charconv>
 
@@ -319,8 +319,8 @@ auto _find_all_standalone(
             uint16_t parentVid = string_to_int<uint16_t>(parentIdVendor, 16).value_or(0);
             uint16_t parentPid = string_to_int<uint16_t>(parentIdProduct, 16).value_or(0);
 
-            // Skip if parent is a FreeWili Hub
-            if (parentVid == USB_VID_FW_HUB && parentPid == USB_PID_FW_HUB) {
+            // Skip if parent is a FreeWili Hub, it's already accounted for there
+            if (Fw::is_freewili_hub(parentVid, parentPid)) {
                 udev_device_unref(dev);
                 continue;
             }
@@ -487,14 +487,6 @@ auto _find_all_freewili(
     struct udev_list_entry* devices = udev_enumerate_get_list_entry(enumerate);
     struct udev_list_entry* dev_list_entry;
 
-    // Find the Hubs
-    std::stringstream ss;
-    ss << std::setfill('0') << std::setw(4) << std::hex << USB_VID_FW_HUB;
-    const std::string targetHubVid = ss.str();
-    ss = {};
-    ss << std::setfill('0') << std::setw(4) << std::hex << USB_PID_FW_HUB;
-    const std::string targetHubPid = ss.str();
-
     USBDevices usbHubDevices;
     udev_list_entry_foreach(dev_list_entry, devices) {
         const char* path = udev_list_entry_get_name(dev_list_entry);
@@ -510,7 +502,8 @@ auto _find_all_freewili(
         uint16_t pid = string_to_int<uint16_t>(idProduct, 16).value_or(0);
         uint32_t location = string_to_int<uint32_t>(sysnum, 10).value_or(0);
         std::vector<uint32_t> portChain = usbPortChainFromUdevDevice(dev);
-        if (idVendor == targetHubVid && idProduct == targetHubPid) {
+        // Matches both the FREE-WILi and the FREE-WILi2 internal hubs
+        if (Fw::is_freewili_hub(vid, pid)) {
             std::string hubSysPath = udev_device_get_syspath(dev);
             auto hubDevice = USBDevice {
                 .kind = Fw::getUSBDeviceTypeFrom(vid, pid, location),

@@ -65,6 +65,8 @@ typedef enum _fw_usbdevicetype_t {
     fw_usbdevicetype_ftdi,
     /// Some other USB device attached to the same hub
     fw_usbdevicetype_other,
+    /// CMSIS-DAP Debug Probe (FREE-WILi2)
+    fw_usbdevicetype_debugprobe,
 
     // Keep this at the end
     fw_usbdevicetype__maxvalue,

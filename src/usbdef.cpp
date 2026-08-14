@@ -11,3 +11,8 @@ auto Fw::is_vid_pid_whitelisted(uint16_t vid, uint16_t pid) -> bool {
     }
     return false;
 }
+
+auto Fw::is_freewili_hub(uint16_t vid, uint16_t pid) -> bool {
+    return (vid == Fw::USB_VID_FW_HUB && pid == Fw::USB_PID_FW_HUB)
+        || (vid == Fw::USB_VID_FW2_HUB && pid == Fw::USB_PID_FW2_HUB);
+}

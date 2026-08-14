@@ -311,7 +311,8 @@ static auto findUSBChildren(io_service_t parentDevice) noexcept -> std::vector<i
     return children;
 }
 
-static auto _find_all_fw_classic() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
+/// Find every hub based FreeWili (FREE-WILi and FREE-WILi2) and its children.
+static auto _find_all_fw_hub_based() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
     CFMutableDictionaryRef matchingDict;
     if (matchingDict = IOServiceMatching(kIOUSBDeviceClassName); !matchingDict) {
         return std::unexpected("IOServiceMatching() Failure");
@@ -344,8 +345,8 @@ static auto _find_all_fw_classic() noexcept -> std::expected<Fw::FreeWiliDevices
             pid = result.value();
         }
 
-        // Only process FreeWili hubs
-        if (vid != Fw::USB_VID_FW_HUB || pid != Fw::USB_PID_FW_HUB) {
+        // Only process FreeWili hubs (FREE-WILi and FREE-WILi2)
+        if (!Fw::is_freewili_hub(vid, pid)) {
             IOObjectRelease(usbDevice);
             continue;
         }
@@ -600,9 +601,9 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
 auto Fw::find_all() noexcept -> std::expected<Fw::FreeWiliDevices, std::string> {
     Fw::FreeWiliDevices devices;
 
-    // First, find all classic FreeWili devices (hub-based)
-    if (auto classicResult = _find_all_fw_classic(); classicResult.has_value()) {
-        for (auto&& device: classicResult.value()) {
+    // First, find all hub based FreeWili devices (FREE-WILi and FREE-WILi2)
+    if (auto hubResult = _find_all_fw_hub_based(); hubResult.has_value()) {
+        for (auto&& device: hubResult.value()) {
             devices.push_back(device);
         }
     }

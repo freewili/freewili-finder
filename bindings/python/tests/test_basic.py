@@ -15,7 +15,8 @@ def test_usbdevicetype() -> None:
     assert pyfwfinder.USBDeviceType.ESP32.value == 5
     assert pyfwfinder.USBDeviceType.FTDI.value == 6
     assert pyfwfinder.USBDeviceType.Other.value == 7
-    assert pyfwfinder.USBDeviceType._MaxValue.value == 8
+    assert pyfwfinder.USBDeviceType.DebugProbe.value == 8
+    assert pyfwfinder.USBDeviceType._MaxValue.value == 9
 
 def test_usbdevice() -> None:
     assert hasattr(pyfwfinder, "USBDevice")
@@ -53,6 +54,11 @@ def test_freewilidevice() -> None:
     assert hasattr(pyfwfinder.FreeWiliDevice, "device_type")
     assert hasattr(pyfwfinder.FreeWiliDevice, "usb_devices")
     assert hasattr(pyfwfinder.FreeWiliDevice, "get_usb_devices")
+    assert hasattr(pyfwfinder.FreeWiliDevice, "get_main_usb_device")
+    assert hasattr(pyfwfinder.FreeWiliDevice, "get_display_usb_device")
+    assert hasattr(pyfwfinder.FreeWiliDevice, "get_fpga_usb_device")
+    assert hasattr(pyfwfinder.FreeWiliDevice, "get_debug_probe_usb_device")
+    assert hasattr(pyfwfinder.FreeWiliDevice, "get_hub_usb_device")
 
 
 

@@ -32,6 +32,7 @@ NB_MODULE(pyfwfinder, m) {
         .value("ESP32", Fw::USBDeviceType::ESP32)
         .value("FTDI", Fw::USBDeviceType::FTDI)
         .value("Other", Fw::USBDeviceType::Other)
+        .value("DebugProbe", Fw::USBDeviceType::DebugProbe)
         .value("_MaxValue", Fw::USBDeviceType::_MaxValue)
         .export_values();
 
@@ -131,6 +132,18 @@ NB_MODULE(pyfwfinder, m) {
             "get_fpga_usb_device",
             [](const Fw::FreeWiliDevice& self) {
                 auto result = self.getFPGAUSBDevice();
+                if (result.has_value()) {
+                    return result.value();
+                } else {
+                    PyErr_SetString(PyExc_RuntimeError, result.error().c_str());
+                    throw nb::python_error();
+                }
+            }
+        )
+        .def(
+            "get_debug_probe_usb_device",
+            [](const Fw::FreeWiliDevice& self) {
+                auto result = self.getDebugProbeUSBDevice();
                 if (result.has_value()) {
                     return result.value();
                 } else {

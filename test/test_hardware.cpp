@@ -33,6 +33,12 @@ TEST(FwFinder, ExpectedHardware) {
             if (device.getUSBDevices(Fw::USBDeviceType::FTDI).empty()) {
                 std::cout << "  WARNING: FW2 FTDI not present" << std::endl;
             }
+            if (device.getUSBDevices(Fw::USBDeviceType::DebugProbe).empty()) {
+                std::cout << "  WARNING: FW2 Debug Probe not present" << std::endl;
+            }
+            if (device.getUSBDevices(Fw::USBDeviceType::MassStorage).empty()) {
+                std::cout << "  WARNING: FW2 Mass Storage not present" << std::endl;
+            }
             if (auto mainDevice = device.getMainUSBDevice(); !mainDevice.has_value()) {
                 std::cout << "  WARNING: Main USB device not found: " << mainDevice.error()
                           << std::endl;
