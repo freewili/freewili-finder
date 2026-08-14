@@ -142,7 +142,7 @@ ctest --output-on-failure
 
 ### Python Bindings (`pyfwfinder`)
 
-Requires Python 3.8+ and [uv](https://docs.astral.sh/uv/) (recommended) or pip.
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/) (recommended) or pip.
 
 ```bash
 # Install with uv (recommended)
