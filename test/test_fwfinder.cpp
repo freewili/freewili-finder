@@ -686,6 +686,56 @@ TEST(FW2Device, FromUSBDevices_FullStack) {
     EXPECT_EQ(device.usbDevices.size(), 6);
 }
 
+/// The hub serial lives in a string descriptor that takes a platform specific workaround to read
+/// (_getUSBSerialFromDescriptor() on Windows, getStringDescriptor() on macOS). When it can't be
+/// read, fall back to the children that carry the FREE-WILi2 serial instead of dropping the
+/// device entirely.
+TEST(FW2Device, SerialFallsBackToFTDIWhenHubSerialMissing) {
+    auto hub = FW2DeviceTestSetup::createFW2HubDevice();
+    hub.serial = "";
+    Fw::USBDevices usbDevices = { hub,
+                                  FW2DeviceTestSetup::createFW2MainDevice(),
+                                  FW2DeviceTestSetup::createFW2FTDIDevice(),
+                                  FW2DeviceTestSetup::createFW2DebugProbeDevice(),
+                                  FW2DeviceTestSetup::createFW2ESP32Device(),
+                                  FW2DeviceTestSetup::createFW2MassStorageDevice() };
+
+    auto result = Fw::FreeWiliDevice::fromUSBDevices(usbDevices);
+    ASSERT_TRUE(result.has_value()) << "Failed: " << result.error();
+    EXPECT_EQ(result->deviceType, Fw::DeviceType::FreeWili2);
+    EXPECT_EQ(result->serial, "FWTST1");
+}
+
+/// The Main CPU carries the same serial and takes over when there is no FTDI.
+TEST(FW2Device, SerialFallsBackToMainWhenHubAndFTDIMissing) {
+    auto hub = FW2DeviceTestSetup::createFW2HubDevice();
+    hub.serial = "";
+    Fw::USBDevices usbDevices = { hub,
+                                  FW2DeviceTestSetup::createFW2MainDevice(),
+                                  FW2DeviceTestSetup::createFW2MassStorageDevice() };
+
+    auto result = Fw::FreeWiliDevice::fromUSBDevices(usbDevices);
+    ASSERT_TRUE(result.has_value()) << "Failed: " << result.error();
+    EXPECT_EQ(result->serial, "FWTST1");
+}
+
+/// The debug probe, ESP32 and mass storage each report their own module serial. Using one of
+/// those would label the FREE-WILi2 with a serial that isn't its own, so they are never used as a
+/// fallback - reporting no device is better than reporting a wrong one.
+TEST(FW2Device, SerialFallbackIgnoresModuleSerials) {
+    auto hub = FW2DeviceTestSetup::createFW2HubDevice();
+    hub.serial = "";
+    Fw::USBDevices usbDevices = { hub,
+                                  FW2DeviceTestSetup::createFW2DebugProbeDevice(),
+                                  FW2DeviceTestSetup::createFW2ESP32Device(),
+                                  FW2DeviceTestSetup::createFW2MassStorageDevice() };
+
+    auto result = Fw::FreeWiliDevice::fromUSBDevices(usbDevices);
+    EXPECT_FALSE(result.has_value())
+        << "Expected no device rather than one labelled with a module serial, got: "
+        << (result.has_value() ? result->serial : std::string());
+}
+
 TEST(FW2Device, GetMainUSBDevice_ReturnsFW2Main) {
     auto result = FW2DeviceTestSetup::createFullFW2Device();
     ASSERT_TRUE(result.has_value()) << result.error();
