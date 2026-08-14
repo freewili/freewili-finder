@@ -414,6 +414,9 @@ CFW_FINDER_API fw_error_t fw_usb_device_get_type_name(
         case fw_usbdevicetype_other:
             type_name = getUSBDeviceTypeName(USBDeviceType::Other);
             break;
+        case fw_usbdevicetype_debugprobe:
+            type_name = getUSBDeviceTypeName(USBDeviceType::DebugProbe);
+            break;
         default:
             type_name = std::string("Unknown USB Device Type");
     }

@@ -52,7 +52,10 @@ auto Fw::getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid, uint32_t location) -> 
         // FREE-WILi2 devices
         { { USB_VID_FW2_HUB, USB_PID_FW2_HUB }, Fw::USBDeviceType::Hub },
         { { USB_VID_FW2_MAIN, USB_PID_FW2_MAIN }, Fw::USBDeviceType::SerialMain },
-        { { USB_VID_FW2_SDCARD, USB_PID_FW2_SDCARD }, Fw::USBDeviceType::MassStorage },
+        { { USB_VID_FW2_DISPLAY, USB_PID_FW2_DISPLAY }, Fw::USBDeviceType::SerialDisplay },
+        { { USB_VID_FW2_DEBUG_PROBE, USB_PID_FW2_DEBUG_PROBE }, Fw::USBDeviceType::DebugProbe },
+        { { USB_VID_FW2_ESP32, USB_PID_FW2_ESP32_JTAG }, Fw::USBDeviceType::ESP32 },
+        { { USB_VID_FW2_MASS_STORAGE, USB_PID_FW2_MASS_STORAGE }, Fw::USBDeviceType::MassStorage },
     };
 
     if (auto it = usbDeviceTypeMap.find({ vid, pid }); it != usbDeviceTypeMap.end()) {
@@ -85,6 +88,8 @@ auto Fw::getUSBDeviceTypeName(Fw::USBDeviceType type) -> std::string {
             return "Mass Storage";
         case Fw::USBDeviceType::ESP32:
             return "ESP32";
+        case Fw::USBDeviceType::DebugProbe:
+            return "Debug Probe";
         case Fw::USBDeviceType::Other:
             return "Other";
         case Fw::USBDeviceType::_MaxValue:
@@ -315,17 +320,30 @@ auto Fw::FreeWiliDevice::getDisplayUSBDevice() const noexcept
         ss << getDeviceTypeName(deviceType)
            << " is a standalone device and has no Display USB device.";
         return std::unexpected(ss.str());
-    } else if (auto it = std::find_if(
-                   usbDevices.begin(),
-                   usbDevices.end(),
-                   [&](const USBDevice& usb_dev) {
-                       return usb_dev.location
-                           == static_cast<uint32_t>(Fw::USBHubPortLocation::Display)
-                           && usb_dev.kind != Fw::USBDeviceType::Hub
-                           && usb_dev.kind != Fw::USBDeviceType::Other;
-                   }
-               );
-               it != usbDevices.end())
+    }
+    // First try to find by SerialDisplay kind (works for both FW1 new-firmware and FW2)
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) {
+                return usb_dev.kind == Fw::USBDeviceType::SerialDisplay;
+            }
+        );
+        it != usbDevices.end())
+    {
+        return *it;
+    }
+    // Fall back to port location for FW1 old-firmware (RPI CDC on port 2)
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) {
+                return usb_dev.location == static_cast<uint32_t>(Fw::USBHubPortLocation::Display)
+                    && usb_dev.kind != Fw::USBDeviceType::Hub
+                    && usb_dev.kind != Fw::USBDeviceType::Other;
+            }
+        );
+        it != usbDevices.end())
     {
         return *it;
     }
@@ -339,21 +357,72 @@ auto Fw::FreeWiliDevice::getFPGAUSBDevice() const noexcept
         ss << getDeviceTypeName(deviceType)
            << " is a standalone device and has no FPGA USB device.";
         return std::unexpected(ss.str());
-    } else if (auto it = std::find_if(
-                   usbDevices.begin(),
-                   usbDevices.end(),
-                   [&](const USBDevice& usb_dev) {
-                       return usb_dev.location
-                           == static_cast<uint32_t>(Fw::USBHubPortLocation::FPGA)
-                           && usb_dev.kind != Fw::USBDeviceType::Hub
-                           && usb_dev.kind != Fw::USBDeviceType::Other;
-                   }
-               );
-               it != usbDevices.end())
+    }
+    // The FPGA is driven by the FTDI chip on both the FREE-WILi and the FREE-WILi2
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::FTDI; }
+        );
+        it != usbDevices.end())
+    {
+        return *it;
+    }
+    // Fall back to the hub port the FTDI chip normally sits on
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) {
+                return usb_dev.location == static_cast<uint32_t>(Fw::USBHubPortLocation::FPGA)
+                    && usb_dev.kind != Fw::USBDeviceType::Hub
+                    && usb_dev.kind != Fw::USBDeviceType::Other;
+            }
+        );
+        it != usbDevices.end())
     {
         return *it;
     }
     return std::unexpected("FPGA USB device not found");
+}
+
+auto Fw::FreeWiliDevice::getDebugProbeUSBDevice() const noexcept
+    -> std::expected<USBDevice, std::string> {
+    if (standalone) {
+        std::stringstream ss;
+        ss << getDeviceTypeName(deviceType)
+           << " is a standalone device and has no Debug Probe USB device.";
+        return std::unexpected(ss.str());
+    }
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::DebugProbe; }
+        );
+        it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("Debug Probe USB device not found");
+}
+
+auto Fw::FreeWiliDevice::getESP32USBDevice() const noexcept
+    -> std::expected<USBDevice, std::string> {
+    if (standalone) {
+        std::stringstream ss;
+        ss << getDeviceTypeName(deviceType)
+           << " is a standalone device and has no ESP32 USB device.";
+        return std::unexpected(ss.str());
+    }
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::ESP32; }
+        );
+        it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("ESP32 USB device not found");
 }
 
 auto Fw::FreeWiliDevice::getHubUSBDevice() const noexcept -> std::expected<USBDevice, std::string> {

@@ -6,27 +6,26 @@
 
 namespace Fw {
 /*
-● 2-0   USB Root Hub (USB 3.0) PCI\VEN_1022&DEV_15C0&SUBSYS_50D917AA&REV_00\4&f0530c4&0&0343  -
-└──○    1   1 0x093c 0x2059 FREE-WILi2 FWTST1
-   ├──•  1 󰅕 󰚥   2 mA
-   │  ├──◦ 0-1:1.0  0x00 Hub   0x00 0x01 -
-   │  └──◦ 0-1:1.0  0x01 Hub   0x00 0x02 -
-   ├──○    1   2 0x093c 0x2060 FW2 v01    C6ACB61A8BD41507
-   │  └──•  1 󱇰   250 mA
-   │     ├──◦ 0-1.1:1.0  0x00 CdcCommunications   0x02 0x00 Board CDC
-   │     ├──◦ 0-1.1:1.1  0x00 CdcData             0x00 0x00 -
-   │     └──◦ 0-1.1:1.2 ☶ 0x00 VendorSpecificClass 0x00 0x01 Reset
-   ├──○    3   3 0x0403 0x6014 Single RS232-HS -
-   │  └──•  1 󱇰   500 mA
-   │     └──◦ 0-1.3:1.0 ☶ 0x00 VendorSpecificClass 0xff 0xff Single RS232-HS
-   ├──○    5   4 0x303a 0x1001 USB JTAG/serial debug unit 3C:DC:75:84:FA:BC
-   │  └──•  1 󰚥   500 mA
-   │     ├──◦ 0-1.5:1.0  0x00 CdcCommunications   0x02 0x00 -
-   │     ├──◦ 0-1.5:1.1  0x00 CdcData             0x02 0x00 -
-   │     └──◦ 0-1.5:1.2 ☶ 0x00 VendorSpecificClass 0xff 0x01 -
-   └──○    6   5 0x0424 0x2240 Ultra Fast Media  000000225001
-      └──•  1 󱇰    96 mA
-         └──◦ 0-1.6:1.0  0x00 MassStorage 0x06 0x50 -
+FREE-WILi2 topology as enumerated from production hardware (serial FX0025):
+
+/: Bus 003.Port 004: Dev 003, Class=Hub, Driver=hub/6p, 480M
+    |__ Port 001: Dev 060, 0x093c 0x2059 FREE-WILi2 FX0025 (internal hub, 7 ports)
+        |__ Port 001: Dev 061, 0x093c 0x205a FW2 v07 FX0025
+        |      |__ If 0, Class=Communications, Driver=cdc_acm
+        |      |__ If 1, Class=CDC Data, Driver=cdc_acm
+        |__ Port 003: Dev 062, 0x0403 0x6014 FREE-WILi FW2 FX0025
+        |      |__ If 0, Class=Vendor Specific Class, Driver=ftdi_sio
+        |__ Port 004: Dev 067, 0x2e8a 0x000c FreeWili Debug Probe (CMSIS-DAP) E66568714F28A828
+        |      |__ If 0-3, Class=Vendor Specific Class (CMSIS-DAP)
+        |      |__ If 4-7, Class=Communications/CDC Data, Driver=cdc_acm (2 ports)
+        |__ Port 005: Dev 019, 0x303a 0x1001 USB JTAG/serial debug unit 3C:DC:75:9A:BB:40
+        |      |__ If 0-1, Class=Communications/CDC Data, Driver=cdc_acm
+        |      |__ If 2, Class=Vendor Specific Class (JTAG)
+        |__ Port 006: Dev 066, 0x093c 0x205f FW Ultra Fast Media 0000395D5D4D
+               |__ If 0, Class=Mass Storage, Driver=usb-storage
+
+The Display processor (0x093c 0x2060) is an optional component that isn't
+populated on most units, so it is usually absent from the tree above.
 */
 /// FREE-WILi2 USB Hub Vendor ID.
 const uint16_t USB_VID_FW2_HUB = 0x093C;
@@ -35,21 +34,27 @@ const uint16_t USB_PID_FW2_HUB = 0x2059;
 /// FREE-WILi2 Main Vendor ID.
 const uint16_t USB_VID_FW2_MAIN = 0x093C;
 /// FREE-WILi2 Main Product ID.
-const uint16_t USB_PID_FW2_MAIN = 0x2060; // 0x205A;
+const uint16_t USB_PID_FW2_MAIN = 0x205A;
+/// FREE-WILi2 Display Vendor ID.
+const uint16_t USB_VID_FW2_DISPLAY = 0x093C;
+/// FREE-WILi2 Display Product ID. Optional component, usually not populated.
+const uint16_t USB_PID_FW2_DISPLAY = 0x2060;
 /// FREE-WILi2 FTDI Vendor ID.
 const uint16_t USB_VID_FW2_FTDI = 0x0403;
 /// FREE-WILi2 FTDI Product ID.
 const uint16_t USB_PID_FW2_FTDI = 0x6014;
+/// FREE-WILi2 Debug Probe (CMSIS-DAP) Vendor ID.
+const uint16_t USB_VID_FW2_DEBUG_PROBE = 0x2E8A;
+/// FREE-WILi2 Debug Probe (CMSIS-DAP) Product ID.
+const uint16_t USB_PID_FW2_DEBUG_PROBE = 0x000C;
 /// FREE-WILi2 ESP32 Vendor ID.
 const uint16_t USB_VID_FW2_ESP32 = 0x303A;
-/// FREE-WILi2 ESP32 JTAG Product ID.
+/// FREE-WILi2 ESP32 JTAG/serial debug unit Product ID.
 const uint16_t USB_PID_FW2_ESP32_JTAG = 0x1001;
-/// FREE-WILi2 ESP32 Serial Product ID.
-const uint16_t USB_PID_FW2_ESP32_SERIAL = 0xEA60;
-/// FREE-WILi2 SD Card Reader Vendor ID.
-const uint16_t USB_VID_FW2_SDCARD = 0x0424;
-/// FREE-WILi2 SD Card Reader Product ID.
-const uint16_t USB_PID_FW2_SDCARD = 0x2240;
+/// FREE-WILi2 Mass Storage ("FW Ultra Fast Media") Vendor ID.
+const uint16_t USB_VID_FW2_MASS_STORAGE = 0x093C;
+/// FREE-WILi2 Mass Storage ("FW Ultra Fast Media") Product ID.
+const uint16_t USB_PID_FW2_MASS_STORAGE = 0x205F;
 
 /// FreeWili USB Hub Vendor ID.
 const uint16_t USB_VID_FW_HUB = 0x0424;
@@ -97,7 +102,14 @@ static std::map<uint16_t, std::vector<uint16_t>> WhitelistVIDPID = {
           USB_PID_FW_FTDI,
       } },
     { USB_VID_FW_RPI,
-      { USB_PID_FW_RPI_CDC_PID, USB_PID_FW_RPI_2040_UF2_PID, USB_PID_FW_RPI_2350_UF2_PID } },
+      { USB_PID_FW_RPI_CDC_PID,
+        USB_PID_FW_RPI_2040_UF2_PID,
+        USB_PID_FW_RPI_2350_UF2_PID,
+        USB_PID_FW2_DEBUG_PROBE } },
+    { USB_VID_FW2_ESP32,
+      {
+          USB_PID_FW2_ESP32_JTAG,
+      } },
     { USB_VID_FW_ICS,
       { USB_PID_FW_MAIN_CDC_PID,
         USB_PID_FW_DISPLAY_CDC_PID,
@@ -105,9 +117,21 @@ static std::map<uint16_t, std::vector<uint16_t>> WhitelistVIDPID = {
         USB_PID_FW_DEFCON_2024,
         USB_PID_FW_DEFCON_BADGE_2025,
         USB_PID_FW2_HUB,
-        USB_PID_FW2_MAIN } },
+        USB_PID_FW2_MAIN,
+        USB_PID_FW2_DISPLAY,
+        USB_PID_FW2_MASS_STORAGE } },
 };
 
 auto is_vid_pid_whitelisted(uint16_t vid, uint16_t pid) -> bool;
+
+/// @brief Check if a VID/PID pair identifies a USB hub that a FreeWili is built around.
+///
+/// Both the FREE-WILi (0x0424/0x2513) and the FREE-WILi2 (0x093C/0x2059) present
+/// themselves as an internal hub with the individual processors hanging off of it.
+///
+/// @param vid USB Vendor ID
+/// @param pid USB Product ID
+/// @return true if the VID/PID belongs to a known FreeWili hub.
+auto is_freewili_hub(uint16_t vid, uint16_t pid) -> bool;
 
 }; // namespace Fw

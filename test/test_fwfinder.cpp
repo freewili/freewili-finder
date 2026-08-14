@@ -60,7 +60,23 @@ TEST(FwFinder, getUSBDeviceTypeFrom) {
         Fw::USBDeviceType::SerialMain
     );
     ASSERT_EQ(
-        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_SDCARD, Fw::USB_PID_FW2_SDCARD, 0),
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_DISPLAY, Fw::USB_PID_FW2_DISPLAY, 0),
+        Fw::USBDeviceType::SerialDisplay
+    );
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_FTDI, Fw::USB_PID_FW2_FTDI, 0),
+        Fw::USBDeviceType::FTDI
+    );
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_DEBUG_PROBE, Fw::USB_PID_FW2_DEBUG_PROBE, 0),
+        Fw::USBDeviceType::DebugProbe
+    );
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_ESP32, Fw::USB_PID_FW2_ESP32_JTAG, 0),
+        Fw::USBDeviceType::ESP32
+    );
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_MASS_STORAGE, Fw::USB_PID_FW2_MASS_STORAGE, 0),
         Fw::USBDeviceType::MassStorage
     );
 
@@ -73,6 +89,7 @@ TEST(FwFinder, getUSBDeviceTypeName) {
     ASSERT_STREQ(Fw::getUSBDeviceTypeName(Fw::USBDeviceType::Serial).c_str(), "Serial");
     ASSERT_STREQ(Fw::getUSBDeviceTypeName(Fw::USBDeviceType::MassStorage).c_str(), "Mass Storage");
     ASSERT_STREQ(Fw::getUSBDeviceTypeName(Fw::USBDeviceType::Other).c_str(), "Other");
+    ASSERT_STREQ(Fw::getUSBDeviceTypeName(Fw::USBDeviceType::DebugProbe).c_str(), "Debug Probe");
 }
 
 TEST(FwFinder, getDeviceTypeName) {
@@ -565,12 +582,26 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::SerialMain,
                                .vid = Fw::USB_VID_FW2_MAIN,
                                .pid = Fw::USB_PID_FW2_MAIN,
-                               .name = "FW2 Main CDC",
-                               .serial = "C6ACB61A8BD41507",
+                               .name = "FW2 v07",
+                               .serial = "FWTST1",
                                .location = 1,
                                .portChain = { 1, 1 },
                                .paths = std::nullopt,
                                .port = std::string("COM3"),
+                               ._raw = "USB\\VID_093C&PID_205A\\FWTST1" };
+    }
+
+    /// The Display is an optional component that isn't populated on most units.
+    static Fw::USBDevice createFW2DisplayDevice() {
+        return Fw::USBDevice { .kind = Fw::USBDeviceType::SerialDisplay,
+                               .vid = Fw::USB_VID_FW2_DISPLAY,
+                               .pid = Fw::USB_PID_FW2_DISPLAY,
+                               .name = "FW2 Display CDC",
+                               .serial = "C6ACB61A8BD41507",
+                               .location = 2,
+                               .portChain = { 1, 2 },
+                               .paths = std::nullopt,
+                               .port = std::string("COM4"),
                                ._raw = "USB\\VID_093C&PID_2060\\C6ACB61A8BD41507" };
     }
 
@@ -578,8 +609,8 @@ public:
         return Fw::USBDevice { .kind = Fw::USBDeviceType::FTDI,
                                .vid = Fw::USB_VID_FW2_FTDI,
                                .pid = Fw::USB_PID_FW2_FTDI,
-                               .name = "Single RS232-HS",
-                               .serial = "",
+                               .name = "FREE-WILi FW2",
+                               .serial = "FWTST1",
                                .location = 3,
                                .portChain = { 1, 3 },
                                .paths = std::nullopt,
@@ -587,38 +618,58 @@ public:
                                ._raw = "USB\\VID_0403&PID_6014" };
     }
 
+    static Fw::USBDevice createFW2DebugProbeDevice() {
+        return Fw::USBDevice { .kind = Fw::USBDeviceType::DebugProbe,
+                               .vid = Fw::USB_VID_FW2_DEBUG_PROBE,
+                               .pid = Fw::USB_PID_FW2_DEBUG_PROBE,
+                               .name = "FreeWili Debug Probe (CMSIS-DAP)",
+                               .serial = "E66568714F28A828",
+                               .location = 4,
+                               .portChain = { 1, 4 },
+                               .paths = std::nullopt,
+                               .port = std::string("COM5"),
+                               ._raw = "USB\\VID_2E8A&PID_000C\\E66568714F28A828" };
+    }
+
     static Fw::USBDevice createFW2ESP32Device() {
         return Fw::USBDevice { .kind = Fw::USBDeviceType::ESP32,
                                .vid = Fw::USB_VID_FW2_ESP32,
                                .pid = Fw::USB_PID_FW2_ESP32_JTAG,
-                               .name = "USB JTAG/serial debug unit",
-                               .serial = "3C:DC:75:84:FA:BC",
+                               .name = "Espressif USB JTAG/serial debug unit",
+                               .serial = "3C:DC:75:9A:BB:40",
                                .location = 5,
                                .portChain = { 1, 5 },
                                .paths = std::nullopt,
-                               .port = std::string("COM5"),
-                               ._raw = "USB\\VID_303A&PID_1001" };
+                               .port = std::string("COM6"),
+                               ._raw = "USB\\VID_303A&PID_1001\\3CDC759ABB40" };
     }
 
-    static Fw::USBDevice createFW2SDCardDevice() {
+    static Fw::USBDevice createFW2MassStorageDevice() {
         return Fw::USBDevice { .kind = Fw::USBDeviceType::MassStorage,
-                               .vid = Fw::USB_VID_FW2_SDCARD,
-                               .pid = Fw::USB_PID_FW2_SDCARD,
-                               .name = "Ultra Fast Media",
-                               .serial = "000000225001",
+                               .vid = Fw::USB_VID_FW2_MASS_STORAGE,
+                               .pid = Fw::USB_PID_FW2_MASS_STORAGE,
+                               .name = "FW Ultra Fast Media",
+                               .serial = "0000395D5D4D",
                                .location = 6,
                                .portChain = { 1, 6 },
                                .paths = std::vector<std::string> { "E:\\" },
                                .port = std::nullopt,
-                               ._raw = "USB\\VID_0424&PID_2240\\000000225001" };
+                               ._raw = "USB\\VID_093C&PID_205F\\0000395D5D4D" };
     }
 
+    /// A FREE-WILi2 as it ships: no Display processor populated.
     static std::expected<Fw::FreeWiliDevice, std::string> createFullFW2Device() {
-        Fw::USBDevices usbDevices = { createFW2HubDevice(),
-                                      createFW2MainDevice(),
-                                      createFW2FTDIDevice(),
-                                      createFW2ESP32Device(),
-                                      createFW2SDCardDevice() };
+        Fw::USBDevices usbDevices = { createFW2HubDevice(),   createFW2MainDevice(),
+                                      createFW2FTDIDevice(),  createFW2DebugProbeDevice(),
+                                      createFW2ESP32Device(), createFW2MassStorageDevice() };
+        return Fw::FreeWiliDevice::fromUSBDevices(usbDevices);
+    }
+
+    /// A FREE-WILi2 with the optional Display processor populated.
+    static std::expected<Fw::FreeWiliDevice, std::string> createFW2DeviceWithDisplay() {
+        Fw::USBDevices usbDevices = { createFW2HubDevice(),        createFW2MainDevice(),
+                                      createFW2DisplayDevice(),    createFW2FTDIDevice(),
+                                      createFW2DebugProbeDevice(), createFW2MassStorageDevice() };
         return Fw::FreeWiliDevice::fromUSBDevices(usbDevices);
     }
 };
@@ -632,7 +683,7 @@ TEST(FW2Device, FromUSBDevices_FullStack) {
     EXPECT_EQ(device.name, "FREE-WILi2");
     EXPECT_EQ(device.serial, "FWTST1");
     EXPECT_FALSE(device.standalone);
-    EXPECT_EQ(device.usbDevices.size(), 5);
+    EXPECT_EQ(device.usbDevices.size(), 6);
 }
 
 TEST(FW2Device, GetMainUSBDevice_ReturnsFW2Main) {
@@ -677,12 +728,65 @@ TEST(FW2Device, GetHubUSBDevice_ReturnsFW2Hub) {
     EXPECT_EQ(hub.serial, "FWTST1");
 }
 
-TEST(FW2Device, GetDisplayUSBDevice_ReturnsError) {
+TEST(FW2Device, GetDisplayUSBDevice_ReturnsErrorWhenNotPopulated) {
     auto result = FW2DeviceTestSetup::createFullFW2Device();
     ASSERT_TRUE(result.has_value()) << result.error();
 
     auto displayResult = result->getDisplayUSBDevice();
     EXPECT_FALSE(displayResult.has_value());
+}
+
+TEST(FW2Device, GetDisplayUSBDevice_ReturnsDisplayWhenPopulated) {
+    auto result = FW2DeviceTestSetup::createFW2DeviceWithDisplay();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto displayResult = result->getDisplayUSBDevice();
+    ASSERT_TRUE(displayResult.has_value()) << displayResult.error();
+
+    const auto& display = displayResult.value();
+    EXPECT_EQ(display.kind, Fw::USBDeviceType::SerialDisplay);
+    EXPECT_EQ(display.vid, Fw::USB_VID_FW2_DISPLAY);
+    EXPECT_EQ(display.pid, Fw::USB_PID_FW2_DISPLAY);
+    EXPECT_EQ(display.port.value(), "COM4");
+}
+
+TEST(FW2Device, GetDebugProbeUSBDevice) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto probeResult = result->getDebugProbeUSBDevice();
+    ASSERT_TRUE(probeResult.has_value()) << probeResult.error();
+
+    const auto& probe = probeResult.value();
+    EXPECT_EQ(probe.kind, Fw::USBDeviceType::DebugProbe);
+    EXPECT_EQ(probe.vid, Fw::USB_VID_FW2_DEBUG_PROBE);
+    EXPECT_EQ(probe.pid, Fw::USB_PID_FW2_DEBUG_PROBE);
+    EXPECT_EQ(probe.location, static_cast<uint32_t>(Fw::FW2HubPortLocation::DebugProbe));
+}
+
+TEST(FW2Device, GetDebugProbeViaFilter) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto probes = result->getUSBDevices(Fw::USBDeviceType::DebugProbe);
+    ASSERT_EQ(probes.size(), 1);
+    EXPECT_EQ(probes[0].vid, Fw::USB_VID_FW2_DEBUG_PROBE);
+    EXPECT_EQ(probes[0].pid, Fw::USB_PID_FW2_DEBUG_PROBE);
+    EXPECT_TRUE(probes[0].port.has_value());
+}
+
+TEST(FW2Device, GetESP32USBDevice) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto esp32Result = result->getESP32USBDevice();
+    ASSERT_TRUE(esp32Result.has_value()) << esp32Result.error();
+
+    const auto& esp32 = esp32Result.value();
+    EXPECT_EQ(esp32.kind, Fw::USBDeviceType::ESP32);
+    EXPECT_EQ(esp32.vid, Fw::USB_VID_FW2_ESP32);
+    EXPECT_EQ(esp32.pid, Fw::USB_PID_FW2_ESP32_JTAG);
+    EXPECT_EQ(esp32.location, static_cast<uint32_t>(Fw::FW2HubPortLocation::ESP32));
 }
 
 TEST(FW2Device, GetESP32ViaFilter) {
@@ -693,15 +797,26 @@ TEST(FW2Device, GetESP32ViaFilter) {
     ASSERT_EQ(esp32Devices.size(), 1);
     EXPECT_EQ(esp32Devices[0].vid, Fw::USB_VID_FW2_ESP32);
     EXPECT_EQ(esp32Devices[0].pid, Fw::USB_PID_FW2_ESP32_JTAG);
+    EXPECT_TRUE(esp32Devices[0].port.has_value());
 }
 
-TEST(FW2Device, GetSDCardViaFilter) {
+/// The ESP32 must only ever be attributed to a FreeWili when it sits behind the
+/// hub. A bare ESP32 elsewhere on the bus is not a standalone FreeWili device.
+TEST(FW2Device, ESP32IsNotStandalone) {
+    ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW2_ESP32, Fw::USB_PID_FW2_ESP32_JTAG));
+}
+
+TEST(FW2Device, GetMassStorageViaFilter) {
     auto result = FW2DeviceTestSetup::createFullFW2Device();
     ASSERT_TRUE(result.has_value()) << result.error();
 
     auto massStorageDevices = result->getUSBDevices(Fw::USBDeviceType::MassStorage);
     ASSERT_EQ(massStorageDevices.size(), 1);
-    EXPECT_EQ(massStorageDevices[0].vid, Fw::USB_VID_FW2_SDCARD);
-    EXPECT_EQ(massStorageDevices[0].pid, Fw::USB_PID_FW2_SDCARD);
+    EXPECT_EQ(massStorageDevices[0].vid, Fw::USB_VID_FW2_MASS_STORAGE);
+    EXPECT_EQ(massStorageDevices[0].pid, Fw::USB_PID_FW2_MASS_STORAGE);
+    EXPECT_EQ(
+        massStorageDevices[0].location,
+        static_cast<uint32_t>(Fw::FW2HubPortLocation::SDCard)
+    );
     EXPECT_TRUE(massStorageDevices[0].paths.has_value());
 }

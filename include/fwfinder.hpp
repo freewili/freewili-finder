@@ -19,9 +19,12 @@ enum class USBHubPortLocation : uint32_t {
 };
 
 /// Location of the USB device on the FREE-WILi2 hub
+/// Note: the Display processor is optional and usually not populated, so its
+/// hub port isn't listed here. It is identified by VID/PID instead.
 enum class FW2HubPortLocation : uint32_t {
     Main = 1,
     FPGA = 3,
+    DebugProbe = 4,
     ESP32 = 5,
     SDCard = 6,
 };
@@ -54,6 +57,8 @@ enum class USBDeviceType : uint32_t {
     FTDI,
     /// Some other USB device attached to the same hub
     Other,
+    /// CMSIS-DAP Debug Probe (FREE-WILi2)
+    DebugProbe,
 
     // Keep this at the end
     _MaxValue,
@@ -134,6 +139,10 @@ struct FreeWiliDevice {
     auto getDisplayUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
     // Get the FPGA Processor as a USBDevice
     auto getFPGAUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
+    // Get the CMSIS-DAP Debug Probe as a USBDevice (FREE-WILi2 only)
+    auto getDebugProbeUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
+    // Get the ESP32 as a USBDevice (FREE-WILi2 only)
+    auto getESP32USBDevice() const noexcept -> std::expected<USBDevice, std::string>;
     // Get the Hub as a USBDevice
     auto getHubUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
 

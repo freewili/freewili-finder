@@ -44,7 +44,7 @@ pub fn check_fw_error(code: fw.fw_error_t) FreeWiliError!void {
     };
 }
 
-const USBDeviceType = enum(c_int) { Hub, Serial, SerialMain, SerialDisplay, MassStorage, ESP32, FTDI, Other, _MaxValue };
+const USBDeviceType = enum(c_int) { Hub, Serial, SerialMain, SerialDisplay, MassStorage, ESP32, FTDI, Other, DebugProbe, _MaxValue };
 
 pub const USBDevice = struct {
     const Self = @This();

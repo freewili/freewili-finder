@@ -11,7 +11,7 @@ name = "pyfwfinder"
 version = "0.5.0"
 description = "Python API to find FREE-WILi devices"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 authors = [{ name = "David Rebbe", email = "drebbe@intrepidcs.com" }]
 classifiers = ["License :: OSI Approved :: MIT License"]
 
@@ -47,9 +47,6 @@ skip = ["pp* *-manylinux_i686 *-musllinux_*"]
 # Run pytest to ensure that the package was correctly built
 test-command = "pytest {project}/bindings/python/tests -v"
 test-requires = "pytest"
-
-# Don't test Python 3.8 wheels on macOS/arm64
-test-skip = "cp38-macosx_*:arm64"
 
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "10.15" # Needed for full C++23 support
