@@ -54,6 +54,7 @@ auto Fw::getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid, uint32_t location) -> 
         { { USB_VID_FW2_MAIN, USB_PID_FW2_MAIN }, Fw::USBDeviceType::SerialMain },
         { { USB_VID_FW2_DISPLAY, USB_PID_FW2_DISPLAY }, Fw::USBDeviceType::SerialDisplay },
         { { USB_VID_FW2_DEBUG_PROBE, USB_PID_FW2_DEBUG_PROBE }, Fw::USBDeviceType::DebugProbe },
+        { { USB_VID_FW2_ESP32, USB_PID_FW2_ESP32_JTAG }, Fw::USBDeviceType::ESP32 },
         { { USB_VID_FW2_MASS_STORAGE, USB_PID_FW2_MASS_STORAGE }, Fw::USBDeviceType::MassStorage },
     };
 
@@ -402,6 +403,26 @@ auto Fw::FreeWiliDevice::getDebugProbeUSBDevice() const noexcept
         return *it;
     }
     return std::unexpected("Debug Probe USB device not found");
+}
+
+auto Fw::FreeWiliDevice::getESP32USBDevice() const noexcept
+    -> std::expected<USBDevice, std::string> {
+    if (standalone) {
+        std::stringstream ss;
+        ss << getDeviceTypeName(deviceType)
+           << " is a standalone device and has no ESP32 USB device.";
+        return std::unexpected(ss.str());
+    }
+    if (auto it = std::find_if(
+            usbDevices.begin(),
+            usbDevices.end(),
+            [&](const USBDevice& usb_dev) { return usb_dev.kind == Fw::USBDeviceType::ESP32; }
+        );
+        it != usbDevices.end())
+    {
+        return *it;
+    }
+    return std::unexpected("ESP32 USB device not found");
 }
 
 auto Fw::FreeWiliDevice::getHubUSBDevice() const noexcept -> std::expected<USBDevice, std::string> {

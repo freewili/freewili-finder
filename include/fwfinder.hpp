@@ -25,6 +25,7 @@ enum class FW2HubPortLocation : uint32_t {
     Main = 1,
     FPGA = 3,
     DebugProbe = 4,
+    ESP32 = 5,
     SDCard = 6,
 };
 
@@ -140,6 +141,8 @@ struct FreeWiliDevice {
     auto getFPGAUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
     // Get the CMSIS-DAP Debug Probe as a USBDevice (FREE-WILi2 only)
     auto getDebugProbeUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
+    // Get the ESP32 as a USBDevice (FREE-WILi2 only)
+    auto getESP32USBDevice() const noexcept -> std::expected<USBDevice, std::string>;
     // Get the Hub as a USBDevice
     auto getHubUSBDevice() const noexcept -> std::expected<USBDevice, std::string>;
 

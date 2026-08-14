@@ -18,6 +18,9 @@ FREE-WILi2 topology as enumerated from production hardware (serial FX0025):
         |__ Port 004: Dev 067, 0x2e8a 0x000c FreeWili Debug Probe (CMSIS-DAP) E66568714F28A828
         |      |__ If 0-3, Class=Vendor Specific Class (CMSIS-DAP)
         |      |__ If 4-7, Class=Communications/CDC Data, Driver=cdc_acm (2 ports)
+        |__ Port 005: Dev 019, 0x303a 0x1001 USB JTAG/serial debug unit 3C:DC:75:9A:BB:40
+        |      |__ If 0-1, Class=Communications/CDC Data, Driver=cdc_acm
+        |      |__ If 2, Class=Vendor Specific Class (JTAG)
         |__ Port 006: Dev 066, 0x093c 0x205f FW Ultra Fast Media 0000395D5D4D
                |__ If 0, Class=Mass Storage, Driver=usb-storage
 
@@ -44,6 +47,10 @@ const uint16_t USB_PID_FW2_FTDI = 0x6014;
 const uint16_t USB_VID_FW2_DEBUG_PROBE = 0x2E8A;
 /// FREE-WILi2 Debug Probe (CMSIS-DAP) Product ID.
 const uint16_t USB_PID_FW2_DEBUG_PROBE = 0x000C;
+/// FREE-WILi2 ESP32 Vendor ID.
+const uint16_t USB_VID_FW2_ESP32 = 0x303A;
+/// FREE-WILi2 ESP32 JTAG/serial debug unit Product ID.
+const uint16_t USB_PID_FW2_ESP32_JTAG = 0x1001;
 /// FREE-WILi2 Mass Storage ("FW Ultra Fast Media") Vendor ID.
 const uint16_t USB_VID_FW2_MASS_STORAGE = 0x093C;
 /// FREE-WILi2 Mass Storage ("FW Ultra Fast Media") Product ID.
@@ -99,6 +106,10 @@ static std::map<uint16_t, std::vector<uint16_t>> WhitelistVIDPID = {
         USB_PID_FW_RPI_2040_UF2_PID,
         USB_PID_FW_RPI_2350_UF2_PID,
         USB_PID_FW2_DEBUG_PROBE } },
+    { USB_VID_FW2_ESP32,
+      {
+          USB_PID_FW2_ESP32_JTAG,
+      } },
     { USB_VID_FW_ICS,
       { USB_PID_FW_MAIN_CDC_PID,
         USB_PID_FW_DISPLAY_CDC_PID,

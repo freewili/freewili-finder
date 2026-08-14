@@ -36,8 +36,16 @@ TEST(FwFinder, ExpectedHardware) {
             if (device.getUSBDevices(Fw::USBDeviceType::DebugProbe).empty()) {
                 std::cout << "  WARNING: FW2 Debug Probe not present" << std::endl;
             }
+            if (device.getUSBDevices(Fw::USBDeviceType::ESP32).empty()) {
+                std::cout << "  WARNING: FW2 ESP32 not present" << std::endl;
+            }
             if (device.getUSBDevices(Fw::USBDeviceType::MassStorage).empty()) {
                 std::cout << "  WARNING: FW2 Mass Storage not present" << std::endl;
+            }
+            // The ESP32 must only ever be reported as a child of the hub
+            for (const auto& usbDevice: device.getUSBDevices(Fw::USBDeviceType::ESP32)) {
+                ASSERT_EQ(usbDevice.location, static_cast<uint32_t>(Fw::FW2HubPortLocation::ESP32))
+                    << "ESP32 found somewhere other than the FREE-WILi2 hub ESP32 port";
             }
             if (auto mainDevice = device.getMainUSBDevice(); !mainDevice.has_value()) {
                 std::cout << "  WARNING: Main USB device not found: " << mainDevice.error()

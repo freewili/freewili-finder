@@ -72,6 +72,10 @@ TEST(FwFinder, getUSBDeviceTypeFrom) {
         Fw::USBDeviceType::DebugProbe
     );
     ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_ESP32, Fw::USB_PID_FW2_ESP32_JTAG, 0),
+        Fw::USBDeviceType::ESP32
+    );
+    ASSERT_EQ(
         Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW2_MASS_STORAGE, Fw::USB_PID_FW2_MASS_STORAGE, 0),
         Fw::USBDeviceType::MassStorage
     );
@@ -627,6 +631,19 @@ public:
                                ._raw = "USB\\VID_2E8A&PID_000C\\E66568714F28A828" };
     }
 
+    static Fw::USBDevice createFW2ESP32Device() {
+        return Fw::USBDevice { .kind = Fw::USBDeviceType::ESP32,
+                               .vid = Fw::USB_VID_FW2_ESP32,
+                               .pid = Fw::USB_PID_FW2_ESP32_JTAG,
+                               .name = "Espressif USB JTAG/serial debug unit",
+                               .serial = "3C:DC:75:9A:BB:40",
+                               .location = 5,
+                               .portChain = { 1, 5 },
+                               .paths = std::nullopt,
+                               .port = std::string("COM6"),
+                               ._raw = "USB\\VID_303A&PID_1001\\3CDC759ABB40" };
+    }
+
     static Fw::USBDevice createFW2MassStorageDevice() {
         return Fw::USBDevice { .kind = Fw::USBDeviceType::MassStorage,
                                .vid = Fw::USB_VID_FW2_MASS_STORAGE,
@@ -642,11 +659,9 @@ public:
 
     /// A FREE-WILi2 as it ships: no Display processor populated.
     static std::expected<Fw::FreeWiliDevice, std::string> createFullFW2Device() {
-        Fw::USBDevices usbDevices = { createFW2HubDevice(),
-                                      createFW2MainDevice(),
-                                      createFW2FTDIDevice(),
-                                      createFW2DebugProbeDevice(),
-                                      createFW2MassStorageDevice() };
+        Fw::USBDevices usbDevices = { createFW2HubDevice(),   createFW2MainDevice(),
+                                      createFW2FTDIDevice(),  createFW2DebugProbeDevice(),
+                                      createFW2ESP32Device(), createFW2MassStorageDevice() };
         return Fw::FreeWiliDevice::fromUSBDevices(usbDevices);
     }
 
@@ -668,7 +683,7 @@ TEST(FW2Device, FromUSBDevices_FullStack) {
     EXPECT_EQ(device.name, "FREE-WILi2");
     EXPECT_EQ(device.serial, "FWTST1");
     EXPECT_FALSE(device.standalone);
-    EXPECT_EQ(device.usbDevices.size(), 5);
+    EXPECT_EQ(device.usbDevices.size(), 6);
 }
 
 TEST(FW2Device, GetMainUSBDevice_ReturnsFW2Main) {
@@ -758,6 +773,37 @@ TEST(FW2Device, GetDebugProbeViaFilter) {
     EXPECT_EQ(probes[0].vid, Fw::USB_VID_FW2_DEBUG_PROBE);
     EXPECT_EQ(probes[0].pid, Fw::USB_PID_FW2_DEBUG_PROBE);
     EXPECT_TRUE(probes[0].port.has_value());
+}
+
+TEST(FW2Device, GetESP32USBDevice) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto esp32Result = result->getESP32USBDevice();
+    ASSERT_TRUE(esp32Result.has_value()) << esp32Result.error();
+
+    const auto& esp32 = esp32Result.value();
+    EXPECT_EQ(esp32.kind, Fw::USBDeviceType::ESP32);
+    EXPECT_EQ(esp32.vid, Fw::USB_VID_FW2_ESP32);
+    EXPECT_EQ(esp32.pid, Fw::USB_PID_FW2_ESP32_JTAG);
+    EXPECT_EQ(esp32.location, static_cast<uint32_t>(Fw::FW2HubPortLocation::ESP32));
+}
+
+TEST(FW2Device, GetESP32ViaFilter) {
+    auto result = FW2DeviceTestSetup::createFullFW2Device();
+    ASSERT_TRUE(result.has_value()) << result.error();
+
+    auto esp32Devices = result->getUSBDevices(Fw::USBDeviceType::ESP32);
+    ASSERT_EQ(esp32Devices.size(), 1);
+    EXPECT_EQ(esp32Devices[0].vid, Fw::USB_VID_FW2_ESP32);
+    EXPECT_EQ(esp32Devices[0].pid, Fw::USB_PID_FW2_ESP32_JTAG);
+    EXPECT_TRUE(esp32Devices[0].port.has_value());
+}
+
+/// The ESP32 must only ever be attributed to a FreeWili when it sits behind the
+/// hub. A bare ESP32 elsewhere on the bus is not a standalone FreeWili device.
+TEST(FW2Device, ESP32IsNotStandalone) {
+    ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW2_ESP32, Fw::USB_PID_FW2_ESP32_JTAG));
 }
 
 TEST(FW2Device, GetMassStorageViaFilter) {

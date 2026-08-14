@@ -152,6 +152,18 @@ NB_MODULE(pyfwfinder, m) {
                 }
             }
         )
+        .def(
+            "get_esp32_usb_device",
+            [](const Fw::FreeWiliDevice& self) {
+                auto result = self.getESP32USBDevice();
+                if (result.has_value()) {
+                    return result.value();
+                } else {
+                    PyErr_SetString(PyExc_RuntimeError, result.error().c_str());
+                    throw nb::python_error();
+                }
+            }
+        )
         .def("get_hub_usb_device", [](const Fw::FreeWiliDevice& self) {
             auto result = self.getHubUSBDevice();
             if (result.has_value()) {
