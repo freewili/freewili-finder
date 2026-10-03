@@ -38,6 +38,7 @@ def test_devicetype() -> None:
     assert hasattr(pyfwfinder.DeviceType, "Winky")
     assert hasattr(pyfwfinder.DeviceType, "UF2")
     assert hasattr(pyfwfinder.DeviceType, "FreeWili2")
+    assert hasattr(pyfwfinder.DeviceType, "Probe")
 
     assert pyfwfinder.DeviceType.Unknown.value == 0
     assert pyfwfinder.DeviceType.FreeWili.value == 1
@@ -46,6 +47,7 @@ def test_devicetype() -> None:
     assert pyfwfinder.DeviceType.UF2.value == 4
     assert pyfwfinder.DeviceType.Winky.value == 5
     assert pyfwfinder.DeviceType.FreeWili2.value == 6
+    assert pyfwfinder.DeviceType.Probe.value == 7
 
 def test_freewilidevice() -> None:
     assert hasattr(pyfwfinder, "FreeWiliDevice")

@@ -91,6 +91,12 @@ const uint16_t USB_PID_FW_WINKY = 0x2056;
 const uint16_t USB_PID_FW_DEFCON_2024 = 0x2057;
 /// DEFCON 2025 FreeWili Badge Product ID
 const uint16_t USB_PID_FW_DEFCON_BADGE_2025 = 0x2058;
+/// WILI Probe Product ID (Vendor ID is USB_VID_FW_ICS).
+///
+/// A single RP2350B with no internal hub: it plugs straight into the host, so it is a
+/// standalone device. It is a composite device: interface 0 is the CDC console (the serial
+/// port) and interface 2 is a vendor "Reset" interface with no serial port.
+const uint16_t USB_PID_FW_PROBE = 0x2061;
 
 static std::map<uint16_t, std::vector<uint16_t>> WhitelistVIDPID = {
     { USB_VID_FW_HUB,
@@ -119,7 +125,8 @@ static std::map<uint16_t, std::vector<uint16_t>> WhitelistVIDPID = {
         USB_PID_FW2_HUB,
         USB_PID_FW2_MAIN,
         USB_PID_FW2_DISPLAY,
-        USB_PID_FW2_MASS_STORAGE } },
+        USB_PID_FW2_MASS_STORAGE,
+        USB_PID_FW_PROBE } },
 };
 
 auto is_vid_pid_whitelisted(uint16_t vid, uint16_t pid) -> bool;

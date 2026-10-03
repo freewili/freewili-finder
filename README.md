@@ -19,6 +19,7 @@ The FreeWili Finder library provides both modern C++ and C APIs to:
 | DEFCON 2024 Badge | `DEFCON2024Badge` | Standalone |
 | DEFCON 2025 Badge | `DEFCON2025FwBadge` | Standalone |
 | Winky | `Winky` | Standalone |
+| WILI Probe | `Probe` | Standalone, VID `0x093C` / PID `0x2061` (CDC console on interface 0 = `SerialMain`) |
 | UF2 Bootloader | `UF2` | Standalone |
 
 ### FREE-WILi2 components
@@ -197,6 +198,7 @@ enum class DeviceType {
     UF2,               // UF2 Bootloader mode
     Winky,             // Winky
     FreeWili2,         // FREE-WILi2 (FW2)
+    Probe,             // WILI Probe (standalone single RP2350B)
 };
 
 enum class USBDeviceType {

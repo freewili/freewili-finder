@@ -37,6 +37,8 @@ enum class DeviceType : uint32_t {
     UF2 = 4,
     Winky = 5,
     FreeWili2 = 6,
+    /// WILI Probe: single RP2350B, standalone (no hub). Appended; do not renumber.
+    Probe = 7,
 };
 
 /// Type of USB Device
