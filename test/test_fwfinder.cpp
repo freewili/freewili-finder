@@ -80,6 +80,12 @@ TEST(FwFinder, getUSBDeviceTypeFrom) {
         Fw::USBDeviceType::MassStorage
     );
 
+    // WILI Probe: standalone, its CDC console is the main serial port
+    ASSERT_EQ(
+        Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_PROBE, 0),
+        Fw::USBDeviceType::SerialMain
+    );
+
     ASSERT_EQ(Fw::getUSBDeviceTypeFrom(0, 0, 0), Fw::USBDeviceType::Other);
 }
 
@@ -106,6 +112,7 @@ TEST(FwFinder, getDeviceTypeName) {
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::UF2).c_str(), "UF2");
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::Winky).c_str(), "Winky");
     ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::FreeWili2).c_str(), "FREE-WILi2");
+    ASSERT_STREQ(Fw::getDeviceTypeName(Fw::DeviceType::Probe).c_str(), "WILI Probe");
 }
 
 TEST(FwFinder, BasicAssertions) {
@@ -153,6 +160,7 @@ TEST(FwFinder, isStandAloneDevice) {
     ASSERT_TRUE(Fw::isStandAloneDevice(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_WINKY));
     ASSERT_TRUE(Fw::isStandAloneDevice(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_DEFCON_2024));
     ASSERT_TRUE(Fw::isStandAloneDevice(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_DEFCON_BADGE_2025));
+    ASSERT_TRUE(Fw::isStandAloneDevice(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_PROBE));
 
     ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_2040_UF2_PID));
     ASSERT_FALSE(Fw::isStandAloneDevice(Fw::USB_VID_FW_RPI, Fw::USB_PID_FW_RPI_CDC_PID));
@@ -869,4 +877,37 @@ TEST(FW2Device, GetMassStorageViaFilter) {
         static_cast<uint32_t>(Fw::FW2HubPortLocation::SDCard)
     );
     EXPECT_TRUE(massStorageDevices[0].paths.has_value());
+}
+
+// ============================================================================
+// WILI Probe (standalone single RP2350B, no hub)
+// ============================================================================
+
+static Fw::USBDevice createProbeDevice() {
+    return Fw::USBDevice {
+        .kind = Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_PROBE, 3),
+        .vid = Fw::USB_VID_FW_ICS,
+        .pid = Fw::USB_PID_FW_PROBE,
+        .name = "Probe (USB Composite Device)",
+        .serial = "E5D2986BBCF263FA",
+        .location = 3,
+        .portChain = { 2, 3 },
+        .paths = std::nullopt,
+        .port = "COM122",
+        ._raw = "USB\\VID_093C&PID_2061\\E5D2986BBCF263FA"
+    };
+}
+
+TEST(ProbeDevice, FromUSBDevices) {
+    auto result = Fw::FreeWiliDevice::fromUSBDevices({ createProbeDevice() });
+    ASSERT_TRUE(result.has_value()) << "Failed: " << result.error();
+    EXPECT_EQ(result->deviceType, Fw::DeviceType::Probe);
+    EXPECT_TRUE(result->standalone);
+    EXPECT_EQ(result->serial, "E5D2986BBCF263FA");
+    ASSERT_EQ(result->getUSBDevices(Fw::USBDeviceType::SerialMain).size(), 1);
+    EXPECT_EQ(result->getUSBDevices(Fw::USBDeviceType::SerialDisplay).size(), 0);
+    EXPECT_EQ(result->getUSBDevices(Fw::USBDeviceType::FTDI).size(), 0);
+    auto main = result->getMainUSBDevice();
+    ASSERT_TRUE(main.has_value()) << main.error();
+    EXPECT_EQ(main->port, std::optional<std::string>("COM122"));
 }

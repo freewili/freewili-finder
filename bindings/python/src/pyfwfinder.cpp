@@ -44,6 +44,7 @@ NB_MODULE(pyfwfinder, m) {
         .value("Winky", Fw::DeviceType::Winky)
         .value("UF2", Fw::DeviceType::UF2)
         .value("FreeWili2", Fw::DeviceType::FreeWili2)
+        .value("Probe", Fw::DeviceType::Probe)
         .export_values();
 
     nb::class_<Fw::USBDevice>(m, "USBDevice")

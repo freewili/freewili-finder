@@ -1353,7 +1353,10 @@ auto _find_all_standalone() noexcept -> std::expected<Fw::FreeWiliDevices, std::
         if (auto result = Fw::FreeWiliDevice::fromUSBDevices(devices); result.has_value()) {
             fwDevices.push_back(result.value());
         } else {
-            return std::unexpected(result.error());
+            // Skip this device rather than failing the whole scan: one standalone device that
+            // can't be built (e.g. an empty serial) must not hide every other standalone device.
+            std::cerr << "Failed to create standalone FreeWiliDevice: " << result.error()
+                      << std::endl;
         }
     }
     // Sort the devices by serial number

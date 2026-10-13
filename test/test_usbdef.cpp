@@ -48,6 +48,13 @@ TEST(USBVidPidMatch, FW2Whitelisted) {
     );
 }
 
+TEST(USBVidPidMatch, ProbeConstants) {
+    ASSERT_EQ(Fw::USB_VID_FW_ICS, 0x093C);
+    ASSERT_EQ(Fw::USB_PID_FW_PROBE, 0x2061);
+    ASSERT_TRUE(Fw::is_vid_pid_whitelisted(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_PROBE));
+    ASSERT_FALSE(Fw::is_freewili_hub(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_PROBE));
+}
+
 TEST(USBVidPidMatch, IsFreeWiliHub) {
     // Both generations are built around an internal hub
     ASSERT_TRUE(Fw::is_freewili_hub(Fw::USB_VID_FW_HUB, Fw::USB_PID_FW_HUB));

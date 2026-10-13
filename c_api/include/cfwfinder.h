@@ -83,6 +83,7 @@ typedef enum _fw_devicetype_t {
     fw_devicetype_uf2,
     fw_devicetype_winky,
     fw_devicetype_freewili2,
+    fw_devicetype_probe,
 } _fw_devicetype_t;
 // Define the type for USB device type
 typedef uint32_t fw_devicetype_t;

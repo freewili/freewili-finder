@@ -34,7 +34,7 @@ bool Fw::isStandAloneDevice(uint16_t vid, uint16_t pid) {
     return (vid == Fw::USB_VID_FW_RPI && pid == Fw::USB_PID_FW_RPI_2350_UF2_PID)
         || (vid == Fw::USB_VID_FW_ICS
             && (pid == Fw::USB_PID_FW_WINKY || pid == Fw::USB_PID_FW_DEFCON_2024
-                || pid == Fw::USB_PID_FW_DEFCON_BADGE_2025));
+                || pid == Fw::USB_PID_FW_DEFCON_BADGE_2025 || pid == Fw::USB_PID_FW_PROBE));
 }
 
 auto Fw::getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid, uint32_t location) -> Fw::USBDeviceType {
@@ -49,6 +49,7 @@ auto Fw::getUSBDeviceTypeFrom(uint16_t vid, uint16_t pid, uint32_t location) -> 
         { { USB_VID_FW_ICS, USB_PID_FW_WINKY }, Fw::USBDeviceType::SerialMain },
         { { USB_VID_FW_ICS, USB_PID_FW_DEFCON_2024 }, Fw::USBDeviceType::SerialMain },
         { { USB_VID_FW_ICS, USB_PID_FW_DEFCON_BADGE_2025 }, Fw::USBDeviceType::SerialMain },
+        { { USB_VID_FW_ICS, USB_PID_FW_PROBE }, Fw::USBDeviceType::SerialMain },
         // FREE-WILi2 devices
         { { USB_VID_FW2_HUB, USB_PID_FW2_HUB }, Fw::USBDeviceType::Hub },
         { { USB_VID_FW2_MAIN, USB_PID_FW2_MAIN }, Fw::USBDeviceType::SerialMain },
@@ -112,6 +113,8 @@ auto Fw::getDeviceTypeName(Fw::DeviceType type) -> std::string {
             return "UF2";
         case Fw::DeviceType::Winky:
             return "Winky";
+        case Fw::DeviceType::Probe:
+            return "WILI Probe";
         default:
             return "Unknown";
     }
@@ -178,6 +181,8 @@ auto Fw::FreeWiliDevice::fromUSBDevices(const Fw::USBDevices& usbDevices)
                 deviceType = Fw::DeviceType::DEFCON2025FwBadge;
             } else if (device.pid == Fw::USB_PID_FW_WINKY) {
                 deviceType = Fw::DeviceType::Winky;
+            } else if (device.pid == Fw::USB_PID_FW_PROBE) {
+                deviceType = Fw::DeviceType::Probe;
             } else if (device.pid == Fw::USB_PID_FW_RPI_2040_UF2_PID || device.pid == Fw::USB_PID_FW_RPI_2350_UF2_PID)
             {
                 deviceType = Fw::DeviceType::UF2;

@@ -29,6 +29,7 @@ const DeviceType = enum(c_int) {
     UF2,
     Winky,
     FreeWili2,
+    Probe,
 };
 
 pub fn check_fw_error(code: fw.fw_error_t) FreeWiliError!void {

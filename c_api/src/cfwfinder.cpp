@@ -218,6 +218,9 @@ fw_device_get_type_name(fw_devicetype_t device_type, char* const name, uint32_t*
         case fw_devicetype_freewili2:
             type_name = Fw::getDeviceTypeName(Fw::DeviceType::FreeWili2);
             break;
+        case fw_devicetype_probe:
+            type_name = Fw::getDeviceTypeName(Fw::DeviceType::Probe);
+            break;
         default:
             type_name = std::string("Unknown Device Type");
     }

@@ -101,7 +101,8 @@ TEST(FwFinder, ExpectedHardware) {
             }
         } else if (device.deviceType == Fw::DeviceType::DEFCON2024Badge
                    || device.deviceType == Fw::DeviceType::DEFCON2025FwBadge
-                   || device.deviceType == Fw::DeviceType::Winky)
+                   || device.deviceType == Fw::DeviceType::Winky
+                   || device.deviceType == Fw::DeviceType::Probe)
         {
             ASSERT_EQ(device.standalone, true) << "Expected standalone mode for DEFCON badge";
             // Verify we found a DEFCON badge device successfully.
