@@ -884,20 +884,18 @@ TEST(FW2Device, GetMassStorageViaFilter) {
 // ============================================================================
 
 static Fw::USBDevice createProbeDevice() {
-    return Fw::USBDevice { .kind = Fw::getUSBDeviceTypeFrom(
-                               Fw::USB_VID_FW_ICS,
-                               Fw::USB_PID_FW_PROBE,
-                               3
-                           ),
-                           .vid = Fw::USB_VID_FW_ICS,
-                           .pid = Fw::USB_PID_FW_PROBE,
-                           .name = "Probe (USB Composite Device)",
-                           .serial = "E5D2986BBCF263FA",
-                           .location = 3,
-                           .portChain = { 2, 3 },
-                           .paths = std::nullopt,
-                           .port = "COM122",
-                           ._raw = "USB\\VID_093C&PID_2061\\E5D2986BBCF263FA" };
+    return Fw::USBDevice {
+        .kind = Fw::getUSBDeviceTypeFrom(Fw::USB_VID_FW_ICS, Fw::USB_PID_FW_PROBE, 3),
+        .vid = Fw::USB_VID_FW_ICS,
+        .pid = Fw::USB_PID_FW_PROBE,
+        .name = "Probe (USB Composite Device)",
+        .serial = "E5D2986BBCF263FA",
+        .location = 3,
+        .portChain = { 2, 3 },
+        .paths = std::nullopt,
+        .port = "COM122",
+        ._raw = "USB\\VID_093C&PID_2061\\E5D2986BBCF263FA"
+    };
 }
 
 TEST(ProbeDevice, FromUSBDevices) {
